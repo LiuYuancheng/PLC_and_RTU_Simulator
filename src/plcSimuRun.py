@@ -43,7 +43,7 @@ class UIFrame(wx.Frame):
 #--UIFrame---------------------------------------------------------------------
     def _buidUISizer(self):
         """ Build the main UI Sizer. """
-        flagsR = wx.CENTER | wx.TOP
+        flagsR = wx.LEFT | wx.TOP
         mSizer = wx.BoxSizer(wx.HORIZONTAL)
         mSizer.AddSpacer(5)
         gv.iMBmsgPanel = pl.PanelMDbus(self)

@@ -19,7 +19,7 @@ import plcSimuGobal as gv
 class PanelImge(wx.Panel):
     """ Panel to display image. """
 
-    def __init__(self, parent, panelSize=(400, 400)):
+    def __init__(self, parent, panelSize=(400, 600)):
         wx.Panel.__init__(self, parent, size=panelSize)
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
         self.panelSize = panelSize
@@ -32,7 +32,10 @@ class PanelImge(wx.Panel):
         """ Draw the map on the panel."""
         dc = wx.PaintDC(self)
         w, h = self.panelSize
-        dc.DrawBitmap(self._scaleBitmap(self.bmp, w, h), 0, 0)
+        
+        dc.SetBrush(wx.Brush("White", wx.SOLID))
+        dc.DrawRectangle(0, 0, 400, 600)
+        dc.DrawBitmap(self._scaleBitmap(self.bmp, 400, 400), 0, 0)
         dc.SetPen(wx.Pen('RED'))
         dc.DrawText('This is a sample image', w//2, h//2)
 
@@ -74,7 +77,7 @@ class PanelImge(wx.Panel):
 #-----------------------------------------------------------------------------
 class PanelMDbus(wx.Panel):
     """ Modbus TCP message simulator panel."""
-    def __init__(self, parent, panelSize=(400, 400)):
+    def __init__(self, parent, panelSize=(350, 400)):
         wx.Panel.__init__(self, parent,  size=panelSize)
         self.SetBackgroundColour(wx.Colour(200, 210, 200))
         self.gpsPos = None
@@ -92,21 +95,48 @@ class PanelMDbus(wx.Panel):
         ctSizer.Add(wx.StaticText(self, label="Message send to PLC".ljust(15)),
             flag=flagsR, border=2)     
 
+        hbox0 = wx.BoxSizer(wx.HORIZONTAL)
         self.grid = wx.grid.Grid(self)
         self.grid.SetColLabelSize(30)
         self.grid.SetRowLabelSize(30)
         self.grid.CreateGrid(13, 3)
 
-        self.grid.SetColSize(0, 100)
-        self.grid.SetColLabelValue(0, "Msg Tab")
+        self.grid.SetColSize(0, 140)
+        self.grid.SetColLabelValue(0, "Message Tab")
 
-        self.grid.SetColSize(1, 50)
+        self.grid.SetColSize(1, 40)
         self.grid.SetColLabelValue(1, "Len")
 
-        self.grid.SetColSize(2, 50)
+        self.grid.SetColSize(2, 60)
         self.grid.SetColLabelValue(2, "Value")
 
-        ctSizer.Add(self.grid, flag=flagsR, border=2)
+        
+
+        for idx in range(len(gv.MBTcp_RQ)):
+            self.grid.SetCellValue(idx, 0, gv.MBTcp_RQ[idx])
+            byteLen = 2 if idx < 3 else 1
+            self.grid.SetCellValue(idx, 1, str(byteLen))
+            self.grid.SetCellValue(idx, 2, str(gv.gTcpMsg[idx]))
+        
+        hbox0.Add(self.grid, flag=flagsR, border=2)
+        hbox0.AddSpacer(2)
+        hbox0.Add(wx.Button(self, label='Load>>', size=(60, 25)), flag=wx.CENTER, border=2)
+
+        ctSizer.Add(hbox0, flag=flagsR, border=2)
+
+        ctSizer.AddSpacer(3)
+
+        ctSizer.Add(wx.StaticText(self, label="PLC answer".ljust(15)),
+            flag=flagsR, border=2)
+        ctSizer.AddSpacer(3)
+
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.detailTC = wx.TextCtrl(self, size=(270, 400), style=wx.TE_MULTILINE)
+        hbox1.Add(self.detailTC, flag=flagsR, border=2)
+        hbox1.AddSpacer(2)
+        hbox1.Add(wx.Button(self, label='Fetch<<', size=(60, 25)), flag=wx.CENTER, border=2)
+        ctSizer.Add(hbox1, flag=flagsR, border=2)
 
         # Row idx 0: show the search key and map zoom in level.
         #hbox0 = wx.BoxSizer(wx.HORIZONTAL)
