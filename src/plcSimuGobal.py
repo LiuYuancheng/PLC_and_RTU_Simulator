@@ -27,6 +27,10 @@ MBTcp_RQ = ('Transaction Identifier', 'Protocol Identifier', 'Message Length', '
             'Register value Hi (AO1)', 'Register value Lo (AO1)', '	Register value Hi (AO2)', 
             'Register value Lo (AO2)')
 
+OUTCL = ('COM0', 'Q0', 'Q1', 'Q2', 'Q3', 'COM1', 'Q4', 'Q5', 'Q6')
+
+
+
 
 #-------<GLOBAL VARIABLES (start with "g")>------------------------------------
 # VARIABLES are the built in data type.

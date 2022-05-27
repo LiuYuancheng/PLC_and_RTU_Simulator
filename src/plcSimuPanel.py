@@ -38,6 +38,12 @@ class PanelImge(wx.Panel):
         dc.DrawBitmap(self._scaleBitmap(self.bmp, 400, 400), 0, 0)
         dc.SetPen(wx.Pen('RED'))
         dc.DrawText('This is a sample image', w//2, h//2)
+        for i in range(len(gv.OUTCL)):
+            x = 205 + 16*i
+            y1 = 320
+            y2 = 470 - 20*i
+            dc.DrawLine(x, y1, x, y2)
+
 
 #--PanelImge--------------------------------------------------------------------
     def _scaleBitmap(self, bitmap, width, height):
