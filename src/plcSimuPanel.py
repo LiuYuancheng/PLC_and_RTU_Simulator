@@ -19,7 +19,7 @@ import plcSimuGobal as gv
 class PanelImge(wx.Panel):
     """ Panel to display image. """
 
-    def __init__(self, parent, panelSize=(400, 600)):
+    def __init__(self, parent, panelSize=(450, 600)):
         wx.Panel.__init__(self, parent, size=panelSize)
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
         self.panelSize = panelSize
@@ -151,7 +151,6 @@ class PanelMDbus(wx.Panel):
         return ctSizer
 
 
-
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class PanelCtrl(wx.Panel):
@@ -175,6 +174,10 @@ class PanelCtrl(wx.Panel):
                   flag=flagsR, border=2)
         ctSizer.Add(hbox0, flag=flagsR, border=2)
         return ctSizer
+
+
+
+
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------

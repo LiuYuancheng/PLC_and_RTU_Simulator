@@ -17,6 +17,7 @@ import wx
 
 import plcSimuGobal as gv
 import plcSimuPanel as pl
+import ladderEditorPnl as editor
 PERIODIC = 500      # update in every 500ms
 
 #-----------------------------------------------------------------------------
@@ -25,7 +26,7 @@ class UIFrame(wx.Frame):
     """ Main UI frame window."""
     def __init__(self, parent, id, title):
         """ Init the UI and parameters """
-        wx.Frame.__init__(self, parent, id, title, size=(1150, 560))
+        wx.Frame.__init__(self, parent, id, title, size=(1500, 560))
         # No boader frame:
         #wx.Frame.__init__(self, parent, id, title, style=wx.MINIMIZE_BOX | wx.STAY_ON_TOP)
         self.SetBackgroundColour(wx.Colour(200, 210, 200))
@@ -58,7 +59,7 @@ class UIFrame(wx.Frame):
         mSizer.Add(wx.StaticLine(self, wx.ID_ANY, size=(-1, 560),
                                  style=wx.LI_VERTICAL), flag=flagsR, border=2)
         mSizer.AddSpacer(5)
-        gv.iCtrlPanel = pl.PanelCtrl(self)
+        gv.iCtrlPanel = editor.LadderPanel(self)
         mSizer.Add(gv.iCtrlPanel, flag=flagsR, border=2)
         return mSizer
 
