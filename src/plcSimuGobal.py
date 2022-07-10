@@ -30,7 +30,7 @@ MBTcp_RQ = ('Transaction Identifier', 'Protocol Identifier', 'Message Length', '
 OUTCL = ('COM0', 'Q0', 'Q1', 'Q2', 'Q3', 'COM1', 'Q4', 'Q5', 'Q6')
 
 
-
+ICON_IP_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'input.png')
 
 #-------<GLOBAL VARIABLES (start with "g")>------------------------------------
 # VARIABLES are the built in data type.

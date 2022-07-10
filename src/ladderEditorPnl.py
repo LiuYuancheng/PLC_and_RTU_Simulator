@@ -18,7 +18,7 @@ import plcSimuGobal as gv
 
 class LadderPanel(wx.Panel): 
 
-    def __init__(self, parent, panelSize=(650, 650)):
+    def __init__(self, parent, panelSize=(660, 660)):
         wx.Panel.__init__(self, parent, size=panelSize)
         self.SetSizer(self._buidUISizer())
 
@@ -27,6 +27,13 @@ class LadderPanel(wx.Panel):
         flagsR = wx.LEFT
         ctSizer = wx.BoxSizer(wx.VERTICAL)
 
+        btSizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        inputButton = wx.BitmapButton(self, -1, wx.Bitmap(gv.ICON_IP_PATH, wx.BITMAP_TYPE_ANY), size=(60, 40))
+        btSizer.Add(inputButton, flag=wx.LEFT, border=2)
+
+        ctSizer.Add(btSizer, flag=wx.LEFT, border=2)
+        
         hbox0 = wx.BoxSizer(wx.HORIZONTAL)
         hbox0.Add(wx.Button(self, label=' ', size=(30, 30)), flag=wx.CENTER, border=0)
         
@@ -117,6 +124,32 @@ class LadderEditor(wx.Panel):
         if self.editPos[0] >=0 and self.editPos[1] >=0:
             dc.SetPen(wx.Pen('Red', 3, wx.LONG_DASH))
             dc.DrawRectangle(self.editPos[0], self.editPos[1], 100, 100)
+        
+        self.drawInput(dc, (50,50))
+
+        self.drawInput(dc, (150,50), type='not')
+
+        self.drawOutput(dc, (250,50))
+
+
+    def drawInput(self, dc, pos, state=False, type=None):
+        color = "Green" if state else "Black"
+        dc.SetPen(wx.Pen(color, 3))
+        (x,y) = pos
+        dc.DrawLine(x-50, y, x-20, y)
+        dc.DrawLine(x+20, y, x+50, y)
+        dc.DrawLine(x-20, y-20, x-20, y+20)
+        dc.DrawLine(x+20, y-20, x+20, y+20)
+        if type == 'not':
+            dc.DrawLine(x-18, y+18, x+18, y-18)
+
+
+    def drawOutput(self, dc, pos, state=False):
+        color = "Green" if state else "Black"
+        (x,y) = pos
+        dc.DrawLine(x-50, y, x-20, y)
+        dc.DrawLine(x+20, y, x+50, y)
+        dc.DrawCircle(x,y,20)
 
 
 #--PanelImge--------------------------------------------------------------------

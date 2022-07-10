@@ -26,7 +26,7 @@ class UIFrame(wx.Frame):
     """ Main UI frame window."""
     def __init__(self, parent, id, title):
         """ Init the UI and parameters """
-        wx.Frame.__init__(self, parent, id, title, size=(1500, 560))
+        wx.Frame.__init__(self, parent, id, title, size=(1500, 700))
         # No boader frame:
         #wx.Frame.__init__(self, parent, id, title, style=wx.MINIMIZE_BOX | wx.STAY_ON_TOP)
         self.SetBackgroundColour(wx.Colour(200, 210, 200))
