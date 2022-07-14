@@ -18,8 +18,10 @@ import plcSimuGobal as gv
 
 class LadderPanel(wx.Panel): 
 
-    def __init__(self, parent, panelSize=(660, 660)):
+    def __init__(self, parent, panelSize=(660, 800)):
         wx.Panel.__init__(self, parent, size=panelSize)
+        gv.iLadderMgr = self.itemMgr = LadderMgr(self)
+        self.ladderEditor = None
         self.SetSizer(self._buidUISizer())
 
     def _buidUISizer(self):
@@ -28,9 +30,15 @@ class LadderPanel(wx.Panel):
         ctSizer = wx.BoxSizer(wx.VERTICAL)
 
         btSizer = wx.BoxSizer(wx.HORIZONTAL)
-        
-        inputButton = wx.BitmapButton(self, -1, wx.Bitmap(gv.ICON_IP_PATH, wx.BITMAP_TYPE_ANY), size=(60, 40))
-        btSizer.Add(inputButton, flag=wx.LEFT, border=2)
+
+        nb = wx.Notebook(self, size=(600, 100))
+        contactPnl = self._buildContactPnl(nb)
+        nb.AddPage(contactPnl,"Contact")
+
+        coilPnl = self._buildCoidPnl(nb)
+        nb.AddPage(coilPnl,"Coils")
+
+        btSizer.Add(nb, flag=wx.LEFT, border=2)
 
         ctSizer.Add(btSizer, flag=wx.LEFT, border=2)
         
@@ -80,13 +88,94 @@ class LadderPanel(wx.Panel):
 
         hbox1.Add(vbox, flag=flagsR, border=0)
 
-        ladderEditor = LadderEditor(self)
+        self.ladderEditor = LadderEditor(self)
 
-        hbox1.Add(ladderEditor, flag=flagsR, border=0)
+        hbox1.Add(self.ladderEditor, flag=flagsR, border=0)
 
         ctSizer.Add(hbox1, flag=flagsR, border=0)
 
         return ctSizer
+
+    def _buildContactPnl(self, nb):
+        contactPnl = wx.Panel(nb, -1)
+        
+        flagsR = wx.LEFT | wx.CENTRE
+
+        contactPnl.SetBackgroundColour(wx.Colour(100, 100, 100))
+        
+        btSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        lineButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_LI_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(lineButton, flag=flagsR, border=2)
+        lineButton.Bind(wx.EVT_BUTTON, self.onLineSet)
+
+        inputXButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPX_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(inputXButton, flag=flagsR, border=2)
+        inputXButton.Bind(wx.EVT_BUTTON, self.onInputXset)
+
+        inputNButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPN_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(inputNButton, flag=flagsR, border=2)
+        inputNButton.Bind(wx.EVT_BUTTON, self.onInputNset)
+
+        inputRButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPR_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(inputRButton, flag=flagsR, border=2)
+
+        contactPnl.SetSizer(btSizer)
+        return contactPnl 
+
+    def _buildCoidPnl(self, nb):
+        contactPnl = wx.Panel(nb, -1)
+        
+        flagsR = wx.LEFT | wx.CENTRE
+
+        contactPnl.SetBackgroundColour(wx.Colour(100, 100, 100))
+        
+        btSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        coilXButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_CLX_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(coilXButton, flag=flagsR, border=2)
+        coilXButton.Bind(wx.EVT_BUTTON, self.onCoilXset)
+
+        coilLButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_CLR_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(coilLButton, flag=flagsR, border=2)
+
+        coilUButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_CLU_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        btSizer.Add(coilUButton, flag=flagsR, border=2)
+
+        contactPnl.SetSizer(btSizer)
+        return contactPnl 
+
+    def onLineSet(self, event):
+        if self.ladderEditor:
+            pos = self.ladderEditor.getEditIdx()            
+            gv.iLadderMgr.itemList[pos[0]][pos[1]] = 1
+            self.ladderEditor.updateDisplay()
+        
+    def onInputXset(self, event):
+        if self.ladderEditor:
+            pos = self.ladderEditor.getEditIdx()            
+            gv.iLadderMgr.itemList[pos[0]][pos[1]] = 2
+            self.ladderEditor.updateDisplay()
+
+
+    def onInputNset(self, event):
+        if self.ladderEditor:
+            pos = self.ladderEditor.getEditIdx()            
+            gv.iLadderMgr.itemList[pos[0]][pos[1]] = 3
+            self.ladderEditor.updateDisplay()
+
+    def onCoilXset(self, event):
+        if self.ladderEditor:
+            pos = self.ladderEditor.getEditIdx()            
+            gv.iLadderMgr.itemList[pos[0]][pos[1]] = 4
+            self.ladderEditor.updateDisplay()
+
+
+
+class LadderMgr(object):
+    def __init__(self, parent) -> None:
+        self.parent = parent
+        self.itemList = [[0 for i in range(6)] for i in range(6)] 
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -108,6 +197,11 @@ class LadderEditor(wx.Panel):
         self.editPos = scrnPt[0]//100*100, scrnPt[1]//100*100
         self.updateDisplay()
 
+    def getEditIdx(self):
+        (x, y) = (self.editPos[0]//100, self.editPos[1]//100)
+        print(">>>>>" + str((x, y)))
+        return (x, y)
+
 #--PanelImge--------------------------------------------------------------------
     def onPaint(self, evt):
         """ Draw the map on the panel."""
@@ -125,12 +219,23 @@ class LadderEditor(wx.Panel):
             dc.SetPen(wx.Pen('Red', 3, wx.LONG_DASH))
             dc.DrawRectangle(self.editPos[0], self.editPos[1], 100, 100)
         
-        self.drawInput(dc, (50,50))
+        for i in range(6):
+            for j in range(6):
+                pos = (i*100+50,j*100+50)
+                if gv.iLadderMgr.itemList[i][j] == 1:
+                    self.drawLine(dc, pos)
+                elif gv.iLadderMgr.itemList[i][j] == 2:
+                    self.drawInput(dc, pos)
+                elif gv.iLadderMgr.itemList[i][j] == 3:
+                    self.drawInput(dc, pos, type='not')
+                elif gv.iLadderMgr.itemList[i][j] == 4:
+                    self.drawOutput(dc, pos)
 
-        self.drawInput(dc, (150,50), type='not')
-
-        self.drawOutput(dc, (250,50))
-
+    def drawLine(self, dc, pos, state=False):
+        color = "Green" if state else "Black"
+        dc.SetPen(wx.Pen(color, 3))
+        (x,y) = pos
+        dc.DrawLine(x-50, y, x+50, y)
 
     def drawInput(self, dc, pos, state=False, type=None):
         color = "Green" if state else "Black"

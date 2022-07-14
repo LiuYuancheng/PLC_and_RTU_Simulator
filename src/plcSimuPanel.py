@@ -117,7 +117,6 @@ class PanelMDbus(wx.Panel):
         self.grid.SetColLabelValue(2, "Value")
 
         
-
         for idx in range(len(gv.MBTcp_RQ)):
             self.grid.SetCellValue(idx, 0, gv.MBTcp_RQ[idx])
             byteLen = 2 if idx < 3 else 1
@@ -174,10 +173,6 @@ class PanelCtrl(wx.Panel):
                   flag=flagsR, border=2)
         ctSizer.Add(hbox0, flag=flagsR, border=2)
         return ctSizer
-
-
-
-
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------

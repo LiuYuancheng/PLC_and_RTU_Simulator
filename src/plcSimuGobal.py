@@ -30,7 +30,15 @@ MBTcp_RQ = ('Transaction Identifier', 'Protocol Identifier', 'Message Length', '
 OUTCL = ('COM0', 'Q0', 'Q1', 'Q2', 'Q3', 'COM1', 'Q4', 'Q5', 'Q6')
 
 
-ICON_IP_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'input.png')
+ICON_LI_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'line.png')
+ICON_IPX_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'input_x.png')
+ICON_IPN_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'input_n.png')
+ICON_IPR_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'input_r.png')
+
+ICON_CLX_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'coil_x.png')
+ICON_CLR_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'coil_r.png')
+ICON_CLU_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'coil_u.png')
+
 
 #-------<GLOBAL VARIABLES (start with "g")>------------------------------------
 # VARIABLES are the built in data type.
@@ -44,6 +52,6 @@ iMainFrame = None   # MainFrame.
 iImagePanel = None  # Image panel.
 iCtrlPanel = None   # control panel
 iMBmsgPanel = None 
-
+iLadderMgr = None
 
 
