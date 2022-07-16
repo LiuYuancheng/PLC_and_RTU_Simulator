@@ -29,6 +29,7 @@ MBTcp_RQ = ('Transaction Identifier', 'Protocol Identifier', 'Message Length', '
 
 OUTCL = ('COM0', 'Q0', 'Q1', 'Q2', 'Q3', 'COM1', 'Q4', 'Q5', 'Q6')
 
+ICON_CLN_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'clear.png')
 
 ICON_LI_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'line.png')
 ICON_IPX_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'input_x.png')
@@ -39,13 +40,11 @@ ICON_CLX_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'coil_x.png')
 ICON_CLR_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'coil_r.png')
 ICON_CLU_PATH = os.path.join(dirpath, IMG_FD, 'icons', 'coil_u.png')
 
-
 #-------<GLOBAL VARIABLES (start with "g")>------------------------------------
 # VARIABLES are the built in data type.
 gTranspPct = 100     # Windows transparent percentage.
 gUpdateRate = 1     # main frame update rate 1 sec.
 gTcpMsg = ('0001', '0000', '0009', '11', '03', '06', '02', '2B', '00', '64', '00', '7F')
-
 
 #-------<GLOBAL PARAMTERS>-----------------------------------------------------
 iMainFrame = None   # MainFrame.

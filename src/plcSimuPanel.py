@@ -44,7 +44,6 @@ class PanelImge(wx.Panel):
             y2 = 470 - 20*i
             dc.DrawLine(x, y1, x, y2)
 
-
 #--PanelImge--------------------------------------------------------------------
     def _scaleBitmap(self, bitmap, width, height):
         """ Resize a input bitmap.(bitmap-> image -> resize image -> bitmap)"""

@@ -105,19 +105,23 @@ class LadderPanel(wx.Panel):
         
         btSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        lineButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_LI_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        clearButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_CLN_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50), name='clear')
+        btSizer.Add(clearButton, flag=flagsR, border=2)
+        clearButton.Bind(wx.EVT_BUTTON, self.onSet)
+
+        lineButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_LI_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50), name='link')
         btSizer.Add(lineButton, flag=flagsR, border=2)
         lineButton.Bind(wx.EVT_BUTTON, self.onLineSet)
 
-        inputXButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPX_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        inputXButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPX_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50), name='input')
         btSizer.Add(inputXButton, flag=flagsR, border=2)
         inputXButton.Bind(wx.EVT_BUTTON, self.onInputXset)
 
-        inputNButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPN_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        inputNButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPN_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50), name='inputN')
         btSizer.Add(inputNButton, flag=flagsR, border=2)
         inputNButton.Bind(wx.EVT_BUTTON, self.onInputNset)
 
-        inputRButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPR_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50))
+        inputRButton = wx.BitmapButton(contactPnl, -1, wx.Bitmap(gv.ICON_IPR_PATH, wx.BITMAP_TYPE_ANY), size=(64, 50), name='inputR')
         btSizer.Add(inputRButton, flag=flagsR, border=2)
 
         contactPnl.SetSizer(btSizer)
@@ -145,6 +149,11 @@ class LadderPanel(wx.Panel):
         contactPnl.SetSizer(btSizer)
         return contactPnl 
 
+    def onSet(self, event):
+        btn = event.GetEventObject()
+        print(btn.GetName()) 
+
+
     def onLineSet(self, event):
         if self.ladderEditor:
             pos = self.ladderEditor.getEditIdx()            
@@ -169,8 +178,6 @@ class LadderPanel(wx.Panel):
             pos = self.ladderEditor.getEditIdx()            
             gv.iLadderMgr.itemList[pos[0]][pos[1]] = 4
             self.ladderEditor.updateDisplay()
-
-
 
 class LadderMgr(object):
     def __init__(self, parent) -> None:
@@ -251,6 +258,7 @@ class LadderEditor(wx.Panel):
 
     def drawOutput(self, dc, pos, state=False):
         color = "Green" if state else "Black"
+        dc.SetPen(wx.Pen(color, 3))
         (x,y) = pos
         dc.DrawLine(x-50, y, x-20, y)
         dc.DrawLine(x+20, y, x+50, y)
