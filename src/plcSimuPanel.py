@@ -38,6 +38,7 @@ class PanelImge(wx.Panel):
         dc.DrawBitmap(self._scaleBitmap(self.bmp, 400, 400), 0, 0)
         dc.SetPen(wx.Pen('RED'))
         dc.DrawText('This is a sample image', w//2, h//2)
+        return
         for i in range(len(gv.OUTCL)):
             x = 205 + 16*i
             y1 = 320
