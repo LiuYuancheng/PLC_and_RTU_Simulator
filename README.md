@@ -14,3 +14,6 @@ This is the main simulator UI:
 
 ![](DesignDoc/img/mainUI.png)
 
+https://medium.com/@pt.artem/how-to-use-python-to-build-a-simple-client-server-based-on-the-s7-protocol-f4b96e563cc1
+
+https://python-snap7.readthedocs.io/en/latest/_modules/snap7/server.html#Server
