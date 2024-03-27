@@ -27,6 +27,54 @@ BOOL_TYPE = 0 # bool type 2 bytes data
 INT_TYPE = 1 # integer type 2 bytes data 
 REAL_TYPE = 2 # float type 4 bytes number. 
 
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+class ladderLogic(object):
+    """ The ladder logic object used by data handler, details refer to the < Program 
+        Design > part.
+    """
+
+    def __init__(self, parent, ladderName=None) -> None:
+        """ Init example: testladderlogic = testLogic(None)"""
+        self.parent = parent
+        self.ladderName= ladderName
+        self.srcCoilsInfo = {'address': None, 'offset': None}
+        self.destCoilsInfo = {'address': None, 'offset': None}
+        self.initLadderInfo()
+
+    def initLadderInfo(self):
+        """ Init the ladder register, src and dest coils information, this function will 
+            be called during the logic init. Please over write this function.
+        """
+        pass
+
+#-----------------------------------------------------------------------------
+# Define all the get() functions here:
+
+    def getLadderName(self):
+        return self.ladderName
+
+    def getHoldingRegsInfo(self):
+        return self.holdingRegsInfo
+
+    def getSrcCoilsInfo(self):
+        return self.srcCoilsInfo
+
+    def getDestCoilsInfo(self):
+        return self.destCoilsInfo
+
+#-----------------------------------------------------------------------------
+    def runLadderLogic(self, regsList, coilList=None):
+        """ Pass in the registers state list, source coils state list and 
+            calculate output destination coils state, this function will be called by 
+            plcDataHandler.updateState() function.
+            - Please over write this function.
+        """
+        return []
+
+
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class s7CommClient(object):
@@ -69,36 +117,62 @@ class s7CommClient(object):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class s7commServer(object):
-    """ The server need to run under 64bit version python. Otherwise there will
-        be error: OSError: exception: access violation reading 0x00000001
-        Args:
-            object (_type_): _description_
+    """ multi thread s7comm server, used by PLC/RTU to handle the data read/set 
+        request.
+        Remark: The server need to run under 64bit version python. Otherwise 
+        there will be an OSError: exception: access violation reading 0x00000001
     """
 
-    def __init__(self, hostIp='0.0.0.0', hostPort=102, snapLibPath=None, dataHandler=None) -> None:
+    def __init__(self, hostIp='0.0.0.0', hostPort=102, snapLibPath=None) -> None:
+        """ Init the s7 server
+
+            Args:
+                hostIp (str, optional): service host. Defaults to '0.0.0.0'.
+                hostPort (int, optional): service port. Defaults to 102.
+                snapLibPath (_type_, optional): libflie 'snap7.dll' path for Win-OS if 
+                    the system path is not set. Defaults to None use system path.
+        """ 
         self._hostIp = hostIp
         self._hostPort = hostPort
         self._server = None
         self._dbDict = {}
-        # data base example
+        # Example of data base with one address save one bool, one int and one float number:
         # self._dbDict = {
-        #     '1': {
-        #         'dbData':(ctypes.c_ubyte*8)(),
-        #         'dataIdx':[],
-        #         'dataType':[],
+        #     '1': {    # address index as the key.
+        #         'dbData':(ctypes.c_ubyte*8)(), # 8 byte data 
+        #         'dataIdx':[0, 2, 4], # paramter start index of bytes. 
+        #         'dataType':[BOOL_TYPE, INT_TYPE, REAL_TYPE], # paramter type
         #     }    
         # }
         self.runingFlg = False
         self._server = snap7.server.Server()
         if snapLibPath:
-            print("Set path")
+            print("s7commServer > Load the Snap7 Win-OS lib-dll file : %s" %str(snapLibPath))
             load_library(snapLibPath)
         self.clockInterval = 0.05
         self.terminate = False
 
     #-----------------------------------------------------------------------------
-    def _initNewMemoryAddr(self, memoryIdx, dataIdxList, dataTypeList):
-        """ Init a new memeory 8 bytes address."""
+
+    def _handlerS7request(self, address, dataIdx, writeLen):
+        print("Three Paramters: %s" %str((address, dataIdx, writeLen)))
+
+
+    def getDBinfo(self):
+        print(self._dbDict)
+
+    #-----------------------------------------------------------------------------
+    def initNewMemoryAddr(self, memoryIdx, dataIdxList, dataTypeList):
+        """ Init a new memeory 8 bytes address with the data info. All the init must 
+            be called before the server start. 
+            Args:
+                memoryIdx (int): the memory index 
+                dataIdxList (list[int]): list of data index
+                dataTypeList (list[XXX_TYPE]): list of data type matches to the data index
+
+            Returns:
+                Bool: True if added success, else False.
+        """
         if isinstance(memoryIdx, int) and memoryIdx >= 0:
             if str(memoryIdx) in self._dbDict.keys():
                 print("Error: _initNewMemoryAddr()> memory address %s already exist" %str(memoryIdx))
@@ -109,20 +183,14 @@ class s7commServer(object):
                     'dataIdx':dataIdxList,
                     'dataType':dataTypeList
                 }
+                return True
         else:
             print("Error: _initNewMemoryAddr()> input memory index need to be a >=0 int type")
             return None
 
     #-----------------------------------------------------------------------------
-    def _initMemoryDB(self):
-        pass 
-
-    def _handlerS7request(self, address, dataIdx, writeLen):
-        print("Three Paramters: %s" %str((address, dataIdx, writeLen)))
-
-    #-----------------------------------------------------------------------------
     def initRegisterArea(self):
-        """ register the address index and the data to the snap7 area DB."""
+        """ Register the address index and the data to the snap7 area DB."""
         for addressIdxStr in self._dbDict.keys():
             addressIdx = int(addressIdxStr)
             self._server.register_area(snap7.types.srvAreaDB, addressIdx, self._dbDict[addressIdxStr]['dbData'])
@@ -131,14 +199,14 @@ class s7commServer(object):
         return self.runingFlg
 
     def startService(self):
-        #try:
-        self.initRegisterArea()
-        self._server.start(self._hostPort)
-        self.runingFlg = True
-        # except Exception as err:
-        #     print("Error: startService() Error to start s7snap server: %s" %str(err))
-        #     self.runingFlg = False 
-        #     return None
+        try:
+            self.initRegisterArea()
+            self._server.start(self._hostPort)
+            self.runingFlg = True
+        except Exception as err:
+             print("Error: startService() Error to start s7snap server: %s" %str(err))
+             self.runingFlg = False 
+             return None
 
         while not self.terminate:
             event = self._server.pick_event()
@@ -181,6 +249,8 @@ class s7commServer(object):
 
     #-----------------------------------------------------------------------------
     def stopServer(self):
+        self.runingFlg = False
         self.terminate = True
+        self._server.stop()
         self._server.destroy()
     
