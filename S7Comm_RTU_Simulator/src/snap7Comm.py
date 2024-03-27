@@ -2,31 +2,34 @@
 #-----------------------------------------------------------------------------
 # Name:        snap7Comm.py
 #
-# Purpose:     This module will provide the modbus-TCP client and server communication
-#              API for testing or simulating the data flow connection between PLC and SCADA 
-#              system. The module is implemented based on python pyModbus lib module: 
-#              - Reference: https://github.com/sourceperl/pyModbusTCP
+# Purpose:     This module will provide the S7Comm client and server communication
+#              API for testing or simulating the data flow connection between PLC/RTU 
+#              and SCADA system. The module is implemented based on python-snapy 
+#              lib module: 
+#              - Reference: https://github.com/gijzelaerr/python-snap7
 #
 # Author:      Yuancheng Liu
 #
-# Created:     2023/06/11
-# Version:     v_0.1.3
-# Copyright:   Copyright (c) 2023 LiuYuancheng
+# Created:     2024/03/21
+# Version:     v_0.1.2
+# Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
 """ Program Design:
-"""
 
-import threading
+    We want to create a Siemens S7comm communication channel (client + server) lib
+    to read the data from a real PLC/RTU or simulate the PLC/RTU S7comm data handling 
+    process (handle S7commm request from other program).
+
+"""
+import time
 import ctypes
 import snap7
 from snap7.common import load_library
-import time
 
 BOOL_TYPE = 0 # bool type 2 bytes data 
 INT_TYPE = 1 # integer type 2 bytes data 
 REAL_TYPE = 2 # float type 4 bytes number. 
-
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -39,8 +42,8 @@ class ladderLogic(object):
         """ Init example: testladderlogic = testLogic(None)"""
         self.parent = parent
         self.ladderName= ladderName
-        self.srcCoilsInfo = {'address': None, 'offset': None}
-        self.destCoilsInfo = {'address': None, 'offset': None}
+        self.srcAddrValInfo = {'addressIdx': None, 'dataIdx': None}
+        self.destAddrValInfo = {'addressIdx': None, 'dataIdx': None}
         self.initLadderInfo()
 
     def initLadderInfo(self):
@@ -55,14 +58,11 @@ class ladderLogic(object):
     def getLadderName(self):
         return self.ladderName
 
-    def getHoldingRegsInfo(self):
-        return self.holdingRegsInfo
+    def getSrcAddrValInfo(self):
+        return self.srcAddrValInfo
 
-    def getSrcCoilsInfo(self):
-        return self.srcCoilsInfo
-
-    def getDestCoilsInfo(self):
-        return self.destCoilsInfo
+    def getDestAddrValInfo(self):
+        return self.destAddrValInfo
 
 #-----------------------------------------------------------------------------
     def runLadderLogic(self, regsList, coilList=None):
@@ -72,8 +72,6 @@ class ladderLogic(object):
             - Please over write this function.
         """
         return []
-
-
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -153,15 +151,6 @@ class s7commServer(object):
         self.terminate = False
 
     #-----------------------------------------------------------------------------
-
-    def _handlerS7request(self, address, dataIdx, writeLen):
-        print("Three Paramters: %s" %str((address, dataIdx, writeLen)))
-
-
-    def getDBinfo(self):
-        print(self._dbDict)
-
-    #-----------------------------------------------------------------------------
     def initNewMemoryAddr(self, memoryIdx, dataIdxList, dataTypeList):
         """ Init a new memeory 8 bytes address with the data info. All the init must 
             be called before the server start. 
@@ -175,7 +164,7 @@ class s7commServer(object):
         """
         if isinstance(memoryIdx, int) and memoryIdx >= 0:
             if str(memoryIdx) in self._dbDict.keys():
-                print("Error: _initNewMemoryAddr()> memory address %s already exist" %str(memoryIdx))
+                print("Error: initNewMemoryAddr()> memory address %s already exist" %str(memoryIdx))
                 return None 
             else:
                 self._dbDict[str(memoryIdx)] = {
@@ -185,20 +174,48 @@ class s7commServer(object):
                 }
                 return True
         else:
-            print("Error: _initNewMemoryAddr()> input memory index need to be a >=0 int type")
+            print("Error: initNewMemoryAddr()> input memory index need to be a >=0 int type")
             return None
 
     #-----------------------------------------------------------------------------
     def initRegisterArea(self):
-        """ Register the address index and the data to the snap7 area DB."""
+        """ Register the address index and the data base to the snap7 area DB."""
         for addressIdxStr in self._dbDict.keys():
             addressIdx = int(addressIdxStr)
-            self._server.register_area(snap7.types.srvAreaDB, addressIdx, self._dbDict[addressIdxStr]['dbData'])
+            self._server.register_area(snap7.types.srvAreaDB, 
+                                       addressIdx, 
+                                       self._dbDict[addressIdxStr]['dbData'])
 
+    #-----------------------------------------------------------------------------
     def isRunning(self):
         return self.runingFlg
 
-    def startService(self):
+    def getDBDict(self):
+        return self._dbDict
+
+    def getEvent(self):
+        return self._server.pick_event()
+
+    def getMemoryVal(self, memoryIdx, dataIdx):
+        """ Get the value saved in the memory address.
+            Args:
+                memoryIdx (int): memory address index.
+                dataIdx (int): data index in the memory.
+            return: value saved in the memory.
+        """
+        if str(memoryIdx) in self._dbDict.keys():
+            typeIdx = self._dbDict[str(memoryIdx)]['dataIdx'].index(dataIdx)
+            dataType = self._dbDict[str(memoryIdx)]['dataType'][int(typeIdx)]
+            if dataType == BOOL_TYPE:
+                return snap7.util.get_bool(self._dbDict[str(memoryIdx)]['dbData'], int(dataIdx), 0)
+            elif dataType == INT_TYPE:
+                return snap7.util.get_int(self._dbDict[str(memoryIdx)]['dbData'], int(dataIdx))
+            elif dataType == REAL_TYPE:
+                return snap7.util.get_real(self._dbDict[str(memoryIdx)]['dbData'], int(dataIdx))
+        return None 
+
+    #-----------------------------------------------------------------------------
+    def startService(self, eventHandlerFun=None, printEvt=True):
         try:
             self.initRegisterArea()
             self._server.start(self._hostPort)
@@ -207,17 +224,16 @@ class s7commServer(object):
              print("Error: startService() Error to start s7snap server: %s" %str(err))
              self.runingFlg = False 
              return None
-
+        # Added the loop to print the event and handle the DB change request.
         while not self.terminate:
             event = self._server.pick_event()
             if event:
-                print("event: %s" %str(event))
-                if event.EvtCode == 262144 and event.EvtRetCode == 0: # write command executed
-                    if event.EvtParam1 == 132: # DB write
-                        address = event.EvtParam2
-                        dataIdx = event.EvtParam3
-                        writeLen = event.EvtParam4
-                        self._handlerS7request(address, dataIdx, writeLen)
+                if printEvt: print(" - Event: %s" % str(event))
+                if eventHandlerFun and event.EvtCode == 262144 and event.EvtRetCode == 0:  # write command executed
+                    if event.EvtParam1 == 132:  # DB write
+                        address, dataIdx, writeLen = event.EvtParam2, event.EvtParam3, event.EvtParam4
+                        parmList = (address, dataIdx, writeLen)
+                        eventHandlerFun(parmList)
             else:
                 time.sleep(self.clockInterval)
 
