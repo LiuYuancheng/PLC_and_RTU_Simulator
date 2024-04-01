@@ -2,10 +2,10 @@
 #-----------------------------------------------------------------------------
 # Name:        snap7Comm.py
 #
-# Purpose:     This module will provide the S7Comm client and server communication
-#              API for testing or simulating the data flow connection between PLC/RTU 
-#              and SCADA system. The module is implemented based on python-snapy 
-#              lib module: 
+# Purpose:     This module will provide a packaged Siemens S7Comm client and server 
+#              communication API for testing or simulating the data connection 
+#              flow between PLC/RTU and SCADA system. The module is implemented 
+#              based on python-snapy lib module: 
 #              - Reference: https://github.com/gijzelaerr/python-snap7
 #
 # Author:      Yuancheng Liu
@@ -21,15 +21,20 @@
     to read the data from a real PLC/RTU or simulate the PLC/RTU S7comm data handling 
     process (handle S7commm request from other program).
 
+    Four modules will be provided in this module: 
+
+
+
+    
 """
 import time
 import ctypes
 import snap7
 from snap7.common import load_library
 
-BOOL_TYPE = 0 # bool type 2 bytes data 
-INT_TYPE = 1 # integer type 2 bytes data 
-REAL_TYPE = 2 # float type 4 bytes number. 
+BOOL_TYPE = 0   # bool type 2 bytes data 
+INT_TYPE = 1    # integer type 2 bytes data 
+REAL_TYPE = 2   # float type 4 bytes number. 
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
