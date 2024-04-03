@@ -2,8 +2,9 @@
 #-----------------------------------------------------------------------------
 # Name:        rtuClientTest.py
 #
-# Purpose:     A test case program to start a S7comm client to connect to the
-#              rtu/plc to test set and read the data.
+# Purpose:     This modulde is a test case program of lib module <snap7Comm.py> 
+#              to start a S7comm client connecting to the <rtuServerTest.py> to 
+#              test set and read the data from S7comm (rtu/plc) server.
 #
 # Author:      Yuancheng Liu
 #
@@ -89,10 +90,13 @@ print("Init addrIdx2, dataidx4, val=%s" %
 time.sleep(0.2)
 client.setAddressVal(2, 4, 3.14150, dataType=REAL_TYPE)
 time.sleep(0.2)
-print("Result:")
-print("After run ladder logic addrIdx2, dataidx0, val=%s" %
-      str(client.readAddressVal(2, 0, dataType=REAL_TYPE)))
+rst1 = round(client.readAddressVal(2, 0, dataType=REAL_TYPE), 5)
+print("After run ladder logic addrIdx2, dataidx0, val=%s" %str(rst1))
 time.sleep(0.2)
-print("After run ladder logic addrIdx2, dataidx4, val=%s" %
-      str(client.readAddressVal(2, 4, dataType=REAL_TYPE)))
+rst2 = round(client.readAddressVal(2, 4, dataType=REAL_TYPE), 5)
+print("After run ladder logic addrIdx2, dataidx4, val=%s" %str(rst2))
+rst = 'pass' if rst1 == rst2 else 'fail'
+print("Result: %s" % str(rst))
 time.sleep(1)
+
+client.c

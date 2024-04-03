@@ -2,18 +2,47 @@
 #-----------------------------------------------------------------------------
 # Name:        plcServerTest.py
 #
-# Purpose:     testcase program used to test lib<modbusTcpCom.py> 
+# Purpose:     This moudle is a test case program of the lib<modbusTcpCom.py>
+#              to start a Modbus-TCP server to simulate a PLC to handle holding
+#              register and coils set and read request.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2023/06/11
-# Version:     v_0.1
-# Copyright:   
-# License:     
+# Version:     v_0.1.2
+# Copyright:   Copyright (c) 2023 LiuYuancheng
+# License:     MIT License    
 #-----------------------------------------------------------------------------
-import modbusTcpCom
 
+import os, sys
+
+print("Current working directory is : %s" % os.getcwd())
+DIR_PATH = dirpath = os.path.dirname(os.path.abspath(__file__))
+print("Current source code location : [%s]" % dirpath)
+
+TOPDIR = 'Modbus_PLC_Simulator'
+LIBDIR = 'src'
+
+idx = dirpath.find(TOPDIR)
+gTopDir = dirpath[:idx + len(TOPDIR)] if idx != -1 else dirpath   # found it - truncate right after TOPDIR
+# Config the lib folder 
+gLibDir = os.path.join(gTopDir, LIBDIR)
+if os.path.exists(gLibDir): sys.path.insert(0, gLibDir)
+
+#-----------------------------------------------------------------------------
+print("Test import lib: ")
+try:
+    import modbusTcpCom
+except ImportError as err:
+    print("Import error: %s" % str(err))
+    exit()
+print("- pass")
+
+#-----------------------------------------------------------------------------
 class testLadderLogic(modbusTcpCom.ladderLogic):
+    """ A test ladder logic program with 4 holding register and reverse all the 
+        holding register state.
+    """
 
     def __init__(self, parent) -> None:
         super().__init__(parent)

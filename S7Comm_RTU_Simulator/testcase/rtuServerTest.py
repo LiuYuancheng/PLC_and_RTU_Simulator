@@ -2,10 +2,10 @@
 #-----------------------------------------------------------------------------
 # Name:        rtuServerTest.py
 #
-# Purpose:     A test case program to start a S7comm server to simulate a PLC
-#              or RTU to handle the memory read/set request.
-#              ps: this program need to run under 64bit python, use workon to 
-#              active the vitual env: workon vEnv3.8 then run the program.
+# Purpose:     This modulde is a test case program of lib module <snap7Comm.py>
+#              to start a S7comm server to simulate a PLC or RTU to handle the 
+#              memory read/set request.
+#
 # Author:      Yuancheng Liu
 #
 # Created:     2024/03/41
@@ -13,6 +13,11 @@
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+"""
+    Remark: this program need to run under 64-bit python, use workon to active the 
+            vitual env: workon vEnv3.8 then run the program.
+
+"""
 
 import os, sys
 
@@ -72,6 +77,10 @@ print(" - test set real value  : %s" %str(rst))
 
 # The auto data handling function.
 def handlerS7request(parmList):
+    """ ladder logic simulation function: when the user set the address Idx=2
+        and dataIdx = 4 value, the ladder logic will change the address Idx=2
+        dataIdx = 0 's value to the same value.
+    """
     global server
     addr, dataIdx, datalen = parmList
     print("Received data write request: ")

@@ -60,8 +60,8 @@ from pyModbusTCP.constants import EXP_ILLEGAL_FUNCTION
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class ladderLogic(object):
-    """ The ladder logic object used by data handler, details refer to the < Program 
-        Design > part.
+    """ The PLC ladder logic object used by data handler, details refer to the 
+        < Program Design > part.
     """
 
     def __init__(self, parent, ladderName=None) -> None:

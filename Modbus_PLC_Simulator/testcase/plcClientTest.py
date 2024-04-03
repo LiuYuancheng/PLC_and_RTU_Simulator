@@ -1,31 +1,61 @@
 #-----------------------------------------------------------------------------
 # Name:        plcClientTest.py
 #
-# Purpose:     testcase program used to test lib<modbusTcpCom.py> 
+# Purpose:     This modulde is a test case program of lib module <modbusTcpCom.py>
+#              to start a Modbus-TCP client connecting to the <plcServerTest.py> to 
+#              test set and read the data from PLC server.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2023/06/11
-# Version:     v_0.1
-# Copyright:   
-# License:     
+# Version:     v_0.1.2
+# Copyright:   Copyright (c) 2023 LiuYuancheng
+# License:     MIT License      
 #-----------------------------------------------------------------------------
-import time
-import modbusTcpCom
 
+import os
+import sys
+import time
+
+print("Current working directory is : %s" % os.getcwd())
+DIR_PATH = dirpath = os.path.dirname(os.path.abspath(__file__))
+print("Current source code location : [%s]" % dirpath)
+
+TOPDIR = 'Modbus_PLC_Simulator'
+LIBDIR = 'src'
+
+idx = dirpath.find(TOPDIR)
+# found it - truncate right after TOPDIR
+gTopDir = dirpath[:idx + len(TOPDIR)] if idx != -1 else dirpath
+# Config the lib folder
+gLibDir = os.path.join(gTopDir, LIBDIR)
+if os.path.exists(gLibDir):
+    sys.path.insert(0, gLibDir)
+
+#-----------------------------------------------------------------------------
+print("Test import lib: ")
+try:
+    import modbusTcpCom
+except ImportError as err:
+    print("Import error: %s" % str(err))
+    exit()
+print("- pass")
+
+#-----------------------------------------------------------------------------
 hostIp = '127.0.0.1'
 hostPort = 502
 
 client = modbusTcpCom.modbusTcpClient(hostIp)
 
-print('TestCase 0: test connection')
+print('\nTestcase 01: test modbus server connection.')
 
 while not client.checkConn():
     print('try connect to the PLC')
     print(client.getCoilsBits(0, 4))
     time.sleep(0.5)
+print('- pass')
 
-print('TestCase 1: read the coils: ')
+print('\nTestcase 02: read the coils: ')
 result = client.getCoilsBits(0, 4)
 if result == [True, True, False, False]: 
     print(" - test pass")
@@ -33,7 +63,7 @@ else:
     print(" - test Fail, result: %s" %str(result))
 time.sleep(0.5)
 
-print('TestCase 2: read the holding registers')
+print('\nTestCase 03: read the holding registers')
 result = client.getHoldingRegs(0, 4)
 if result == [0, 0, 1, 1]: 
     print(" - test pass")
@@ -41,7 +71,7 @@ else:
     print(" - test Fail, result: %s" %str(result))
 time.sleep(0.5)
 
-print('TestCase 3: Set the holding registers')
+print('\nTestcase 04: Set the holding registers')
 client.setHoldingRegs(1, 1)
 time.sleep(0.5)
 result = client.getHoldingRegs(0, 4)
@@ -51,7 +81,7 @@ else:
     print(" - test Fail, result: %s" %str(result))
 time.sleep(0.5)
 
-print('TestCase 4: check auto update coils function')
+print('\nTestcase 05: check auto update coils function')
 result = client.getCoilsBits(0, 4)
 if result == [True, False, False, False]: 
     print(" - test pass")
@@ -59,7 +89,7 @@ else:
     print(" - test Fail, result: %s" %str(result))
 time.sleep(0.5)
 
-print('TestCase 5: Set the coils')
+print('\nTestcase 06: Set the coils')
 client.setCoilsBit(1, 1)
 time.sleep(0.5)
 result = client.getCoilsBits(0, 4)

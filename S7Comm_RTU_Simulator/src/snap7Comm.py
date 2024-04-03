@@ -117,6 +117,10 @@ class s7CommClient(object):
             snap7.util.set_real(command, 0, float(data))
         return self.client.db_write(addressIdx, dataIdx, command)
 
+    def close(self):
+        self.connected = False 
+        self.client.disconnect()
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class s7commServer(object):
