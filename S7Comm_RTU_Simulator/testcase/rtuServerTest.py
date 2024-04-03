@@ -1,3 +1,19 @@
+#!/usr/bin/python
+#-----------------------------------------------------------------------------
+# Name:        rtuServerTest.py
+#
+# Purpose:     A test case program to start a S7comm server to simulate a PLC
+#              or RTU to handle the memory read/set request.
+#              ps: this program need to run under 64bit python, use workon to 
+#              active the vitual env: workon vEnv3.8 then run the program.
+# Author:      Yuancheng Liu
+#
+# Created:     2024/03/41
+# Version:     v_0.1.2
+# Copyright:   Copyright (c) 2024 LiuYuancheng
+# License:     MIT License
+#-----------------------------------------------------------------------------
+
 import os, sys
 
 print("Current working directory is : %s" % os.getcwd())
@@ -11,34 +27,48 @@ idx = dirpath.find(TOPDIR)
 gTopDir = dirpath[:idx + len(TOPDIR)] if idx != -1 else dirpath   # found it - truncate right after TOPDIR
 # Config the lib folder 
 gLibDir = os.path.join(gTopDir, LIBDIR)
-if os.path.exists(gLibDir):
-    sys.path.insert(0, gLibDir)
+if os.path.exists(gLibDir): sys.path.insert(0, gLibDir)
 
 #-----------------------------------------------------------------------------
-import snap7Comm
-from snap7Comm import BOOL_TYPE, INT_TYPE, REAL_TYPE
+print("Test import lib: ")
+try:
+    import snap7Comm
+    from snap7Comm import BOOL_TYPE, INT_TYPE, REAL_TYPE
+except ImportError as err:
+    print("Import error: %s" % str(err))
+    exit()
+print("- pass")
 
 #-----------------------------------------------------------------------------
 libpath = os.path.join(gLibDir, 'snap7.dll')
-print("dll path: %s" %str(libpath))
+print("Import snap7 dll path: %s" % str(libpath))
+if os.path.exists(libpath):
+    print("- pass")
+else:
+    print("Error: not file the dll file.")
+    exit()
 
 print("Init the server and memory address")
 server = snap7Comm.s7commServer(snapLibPath=libpath)
 server.initNewMemoryAddr(1, [0, 2, 4], [BOOL_TYPE, INT_TYPE, REAL_TYPE])
 server.initNewMemoryAddr(2, [0, 4], [REAL_TYPE, REAL_TYPE])
 
-print("Test set values.")
+print("Test set and values:")
 server.setMemoryVal(1, 0, True)
 server.setMemoryVal(1, 2, 10)
-server.setMemoryVal(1, 4, 3.141592)
+server.setMemoryVal(1, 4, 3.1415920)
 
 server.setMemoryVal(2, 0, 1.23)
 server.setMemoryVal(2, 4, 4.56)
 
-print("Test get values.")
-print(server.getMemoryVal(1, 0))
-print(server.getMemoryVal(1, 2))
-print(server.getMemoryVal(1, 4))
+rst = 'pass' if server.getMemoryVal(1, 0) else 'failed'
+print(" - test set bool value : %s" %str(rst))
+
+rst = 'pass' if server.getMemoryVal(1, 2) == 10 else 'failed'
+print(" - test set int value   : %s" %str(rst))
+
+rst = 'pass' if round(server.getMemoryVal(1, 4), 6)== 3.141592 else 'failed'
+print(" - test set real value  : %s" %str(rst))
 
 # The auto data handling function.
 def handlerS7request(parmList):
