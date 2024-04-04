@@ -23,9 +23,6 @@
 
     Four modules will be provided in this module: 
 
-
-
-    
 """
 import time
 import ctypes
@@ -106,6 +103,9 @@ class s7CommClient(object):
         else:
             return data
 
+    def checkConn(self):
+        return self.connected
+
     #-----------------------------------------------------------------------------
     def setAddressVal(self, addressIdx, dataIdx, data, dataType=None):
         command = bytearray(4) if dataType == REAL_TYPE else bytearray(2)
@@ -158,6 +158,7 @@ class s7commServer(object):
             load_library(snapLibPath)
         self.clockInterval = 0.05
         self.terminate = False
+        print("s7commServerInit > Host IP: %s, Port: %d" %(self._hostIp, self._hostPort))
 
     #-----------------------------------------------------------------------------
     def initNewMemoryAddr(self, memoryIdx, dataIdxList, dataTypeList):
