@@ -92,8 +92,19 @@ class s7CommClient(object):
         self.connected = self.client.get_connected()
 
     #-----------------------------------------------------------------------------
+    def checkConn(self):
+        return self.connected
+
+    #-----------------------------------------------------------------------------
     def readAddressVal(self, addressIdx, dataIdx, dataType=None):
-        data = self.client.db_read(addressIdx, 0, 8)
+        data = None 
+        try:
+            data = self.client.db_read(addressIdx, 0, 8)
+            self.connected = True
+        except Exception as err:
+            print("Error: readAddressVal()> read RTU data error: %s" %str(err))
+            self.connected = False
+            return None 
         if dataType == BOOL_TYPE:
             return snap7.util.get_bool(data, dataIdx, 0)
         elif dataType == INT_TYPE:
@@ -102,10 +113,7 @@ class s7CommClient(object):
             return snap7.util.get_real(data, dataIdx)
         else:
             return data
-
-    def checkConn(self):
-        return self.connected
-
+        
     #-----------------------------------------------------------------------------
     def setAddressVal(self, addressIdx, dataIdx, data, dataType=None):
         command = bytearray(4) if dataType == REAL_TYPE else bytearray(2)
@@ -115,8 +123,16 @@ class s7CommClient(object):
             snap7.util.set_int(command, 0, int(data))
         else:
             snap7.util.set_real(command, 0, float(data))
-        return self.client.db_write(addressIdx, dataIdx, command)
+        try: 
+            rst = self.client.db_write(addressIdx, dataIdx, command)
+            self.connected = True
+            return rst
+        except Exception as err:
+            print("Error: setAddressVal()> set RTU data error: %s" %str(err))
+            self.connected = False
+            return None 
 
+    #-----------------------------------------------------------------------------
     def close(self):
         self.connected = False 
         self.client.disconnect()

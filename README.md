@@ -1,9 +1,16 @@
 # Python Virtual PLC & RTU Simulator
 
-**Program Design Purpose**: The objective of this program is create a python program which can simulate the fundamental function of two kinds of common industrial automation OT-devices, PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit). The program can run on different OS to convert a VM/Machine to be a virtual PLC/RTU, which can handle the request from SCADA-HMI system via Modbus TCP or S7Comm, then simulate the real PLC/RTU device's electrical signal changes then use UDP to feed the changes to the real-world emulation program. The project contents two main project:
+**Program Design Purpose**: The objective of this program is create a cross platform python library which can simulate the fundamental function of two kinds of common industrial automation OT-devices, PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit). The program with importing the lib can run on different OS to convert a VM/Physical-Machine/Raspberry-PI to be a virtual PLC/RTU, which can handle the request from SCADA-HMI system via Modbus TCP or S7Comm, then simulate the real PLC/RTU device's electrical signal changes then use UDP to feed the changes to the real-world emulation program or use the GPIO/COM lib to output the electrical signal to real device. 
+
+The project contents three main project:
 
 - **PLC Simulation System [ `Modbus` ]**: A PLC simulate system follow the operation logic of the  Schneider M221 PLC with the Modbus-TCP client, Modbus-TCP server, Ladder logic simulation, PLC register-memory-coil control,Real-world emulator components connection interface. 
+
 - **RTU Simulation System [ `S7Comm` ]**: A PLC and RTU simulation system follow the operation logic of the Siemens Simatic S7-1200 PLC and SIMATIC RTU3000C with the S7comm client, S7comm server, PLC/RTU memory management, Ladder logic / RTU logic simulation, real-world emulator components connection interface.
+
+- **Real-world Comm Interface**:  A communication interface library to link the PLC/RTU's electrical output to the real device or the real-world emulator program, the lib include the TCP/UDP lib to real-world emulator,  GPIO lib to the Raspberry-PI or BeagleBone-Black's GPIO pin or Serial lib to the usb-RS232/RS485 output.
+
+  
 
 The system overview is shown below : 
 
