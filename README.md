@@ -1,14 +1,16 @@
 # Python Virtual PLC & RTU Simulator
 
-**Program Design Purpose**: The objective of this program is create a cross platform python library which can simulate the fundamental function of two kinds of common industrial automation OT-devices, PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit). The program with importing the lib can run on different OS to convert a VM/Physical-Machine/Raspberry-PI to be a virtual PLC/RTU, which can handle the request from SCADA-HMI system via Modbus TCP or S7Comm, then simulate the real PLC/RTU device's electrical signal changes then use UDP to feed the changes to the real-world emulation program or use the GPIO/COM lib to output the electrical signal to real device. 
+**Project Design Purpose**: The primary objective of this project is to develop a cross-platform Python library capable of simulating the core fundamental functionalities of two common industrial automation OT (Operational Technology ) devices: PLCs (Programmable Logic Controllers) and RTUs (Remote Terminal Units). With importing the library, the user can effectively construct simulator programs/applications running on different OS to effectively transform virtual machines, physical machines, BBB or Raspberry Pi into into virtual PLCs or RTUs.
 
-The project contents three main project:
+The PLC/RTU simulators are designed to receive and process requests from real HMI(Human-Machine Interface) systems via widely used OT device protocols such as Modbus-TCP and S7Comm, so they can be easily integrated in the real SCADA system. Subsequently, the PLC & RTU simulator also provide simulation of changes in electrical signals, feeding them into the virtual OT devices via TCP/UDP, or directly outputting electrical signals to physical OT devices using GPIO (General Purpose Input/Output) or Serial COM interfaces.
 
-- **PLC Simulation System [ `Modbus` ]**: A PLC simulate system follow the operation logic of the  Schneider M221 PLC with the Modbus-TCP client, Modbus-TCP server, Ladder logic simulation, PLC register-memory-coil control,Real-world emulator components connection interface. 
+The project consists of three primary components:
 
-- **RTU Simulation System [ `S7Comm` ]**: A PLC and RTU simulation system follow the operation logic of the Siemens Simatic S7-1200 PLC and SIMATIC RTU3000C with the S7comm client, S7comm server, PLC/RTU memory management, Ladder logic / RTU logic simulation, real-world emulator components connection interface.
+- **PLC Simulation System [Modbus]**: This component emulates the functionality of a PLC, the design follows the core operation logic of Schneider M221 PLC . It includes Modbus TCP client and server functionalities, ladder logic simulation, PLC register-memory-coil control, and interfaces for connecting with real-world physical or virtual OT devices.
 
-- **Real-world Comm Interface**:  A communication interface library to link the PLC/RTU's electrical output to the real device or the real-world emulator program, the lib include the TCP/UDP lib to real-world emulator,  GPIO lib to the Raspberry-PI or BeagleBone-Black's GPIO pin or Serial lib to the usb-RS232/RS485 output.
+- **RTU Simulation System [S7Comm]**: This component simulates both PLC and RTU operations, the design is based on the core operation logic of Siemens Simatic S7-1200 PLC and SIMATIC RTU3000C, respectively. It incorporates S7Comm client and server functionalities, manages PLC/RTU memory, performs ladder logic and RTU logic simulations, and provides interfaces for connecting with real-world emulators.
+
+- **Real-world Communication Interface**: This component offers a communication interface library that facilitates the connection between the electrical output of PLCs/RTUs and physical devices or virtual real-world emulator programs. For the virtual OT device, the library offers TCP/UDP functionalities for communication with virtual real-world device emulators. For the physical device, the library provides  Raspberry Pi or BeagleBone Black's GPIO pins I/O capabilities for connect to the physical wires and Serial capabilities for communication via USB to connect to the physical OT device whish has RS232/RS485 connectors.
 
   
 
@@ -41,6 +43,10 @@ There are some PLC simulation program in the market such as the OpenPLC, but mos
 - Simulate the multiple PLCs master-slave connection (DCM-DCM with RS422 multi-dop connection).
 - Simulate the PLC access limitation (IP addresses allow read list / allow set list) config. 
 
+In this document we will introduce the desing and 2 use case of the PLC emulation program.
+
+
+
 
 
 ------
@@ -55,8 +61,8 @@ PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit) are both type
    - **PLC (Programmable Logic Controller):** PLCs are programmable devices designed primarily for controlling machinery and processes in industrial environments. They are used to automate sequences of operations, monitor inputs from sensors, and control outputs to actuators based on programmed logic.
    - **RTU (Remote Terminal Unit):** RTUs are specialized devices used primarily for remote monitoring and control of distributed assets in industrial applications, such as in oil and gas pipelines, water distribution systems, and electrical substations. They typically collect data from sensors and equipment in remote locations and transmit it to a central control system for monitoring and analysis.
 2. **Architecture:**
-   - **PLC:** PLCs are standalone controllers with built-in processing capabilities, memory, and input/output (I/O) modules. They are often used for local control within a single machine or process.
-   - **RTU:** RTUs are often part of a larger SCADA (Supervisory Control and Data Acquisition) system. They are designed to interface with sensors and devices in remote locations and communicate data back to a central SCADA master station using communication protocols such as Modbus, DNP3, or IEC 60870.
+   - **PLC:** PLCs are standalone controllers with built-in processing capabilities, memory, and input/output (I/O) modules. They are often used for local control within a single machine or process. The communication protocol used for PLC are Modbus or S7Comm
+   - **RTU:** RTUs are often part of a larger SCADA (Supervisory Control and Data Acquisition) system. They are designed to interface with sensors and devices in remote locations and communicate data back to a central SCADA master station using communication protocols such as S7Comm, DNP3, or IEC 60870.
 3. **I/O Capacity:**
    - **PLC:** PLCs typically have a limited number of I/O points (inputs and outputs) built into the controller itself. However, they can often be expanded with additional I/O modules to accommodate larger systems.
    - **RTU:** RTUs are designed to handle a larger number of I/O points distributed across remote locations. They may have multiple communication ports to connect to various sensors, instruments, and control devices.
@@ -127,7 +133,11 @@ In the 12 seconds the electrical voltage connect to the PLC changed, in the simu
 
 
 
+The RTU simulator program is a multithread program contents 3 part: 
 
+- **Real device/world connector**: A connector interface program simulate the RTU sensor input which can linked to the virtual OT simulation program via TCP/UDP or to connect physical OT device via GPIO/Serial-COM. It will works as real RTU  to read or provide the virtual electrical signal regularly or real electrical signal constantly. 
+- **RTU Logic config file**: Software defined  logic which simulate the data process logic in the RTU. Such as calculate the average speed based on the speed sensor, check whether the max temperature reach to the threshold based on the temperature sensor reading.
+- **S7somm server**: A S7comm service to integrate the RTU simulator in to the SCADA system (ICS network) to allow other SCADA program/equipment such as HMI or remote display console to fetch data or change the RTU' setting.
 
 
 
