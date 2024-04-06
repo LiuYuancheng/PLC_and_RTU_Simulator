@@ -31,12 +31,10 @@ The system overview is shown below :
 
 ### Introduction
 
+There are some PLC simulation program in the market such as the OpenPLC, but most of then didn't provide the interface to connect different OT device especially for the software virtualized OT device, or their setting are not flexible to change for the demonstration request for OT security such as adjust the PLC clock time interval. And most of then didn't provide the function to virtualize a RTU in the OT environment/ We want to develop virtual PLC and RTU emulator program which can auto run simple ladder logic and provided below customized function for flexible usage: 
 
-
-We developed virtual PLC emulator program which can auto run simple ladder logic and provided below customized function for flexible usage: 
-
-- Emulate Schneider M22X Modbus-TCP [port 502] Communication protocol 
-- Emulate Siemens S71200 S7comm [port 102] Communication protocol 
+- Provide Modbus-TCP communication to simulate Modbus PLC such as Schneider M22X. 
+- Provide S7comm communication to simulate S7comm-bus PLC such as Siemens S71200, 
 - Customized software define ladder diagram execution priority 
 - UDP interface for electrical signal (such as voltage) connection emulation to connect to the real world.
 - Simulate the PLC ladder logic execution with customizable time clock cycle configuration for education purpose. 
@@ -48,6 +46,30 @@ We developed virtual PLC emulator program which can auto run simple ladder logic
 ------
 
 ### Background Knowledge 
+
+
+
+PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit) are both types of industrial control devices used in automation and monitoring systems, but they have different characteristics and applications:
+
+1. **Function and Purpose:**
+   - **PLC (Programmable Logic Controller):** PLCs are programmable devices designed primarily for controlling machinery and processes in industrial environments. They are used to automate sequences of operations, monitor inputs from sensors, and control outputs to actuators based on programmed logic.
+   - **RTU (Remote Terminal Unit):** RTUs are specialized devices used primarily for remote monitoring and control of distributed assets in industrial applications, such as in oil and gas pipelines, water distribution systems, and electrical substations. They typically collect data from sensors and equipment in remote locations and transmit it to a central control system for monitoring and analysis.
+2. **Architecture:**
+   - **PLC:** PLCs are standalone controllers with built-in processing capabilities, memory, and input/output (I/O) modules. They are often used for local control within a single machine or process.
+   - **RTU:** RTUs are often part of a larger SCADA (Supervisory Control and Data Acquisition) system. They are designed to interface with sensors and devices in remote locations and communicate data back to a central SCADA master station using communication protocols such as Modbus, DNP3, or IEC 60870.
+3. **I/O Capacity:**
+   - **PLC:** PLCs typically have a limited number of I/O points (inputs and outputs) built into the controller itself. However, they can often be expanded with additional I/O modules to accommodate larger systems.
+   - **RTU:** RTUs are designed to handle a larger number of I/O points distributed across remote locations. They may have multiple communication ports to connect to various sensors, instruments, and control devices.
+4. **Programming and Logic:**
+   - **PLC:** PLCs are programmed using ladder logic, function block diagrams, structured text, or other programming languages tailored for industrial control applications. The programming is focused on implementing logic to control sequences of operations.
+   - **RTU:** RTUs are typically programmed using simpler configuration tools rather than full-fledged programming languages. The emphasis is on configuring data acquisition parameters, communication settings, and alarm thresholds rather than implementing complex control logic.
+5. **Environmental Considerations:**
+   - **PLC:** PLCs are often designed to operate in harsh industrial environments with high temperatures, humidity, and vibration. They are built to withstand these conditions and maintain reliable operation.
+   - **RTU:** RTUs are also ruggedized for outdoor or remote installations, but they may have additional features such as extended temperature ranges and protective enclosures to withstand extreme environmental conditions encountered in remote locations.
+
+In summary, while PLCs and RTUs are both used for industrial automation and control, they serve different purposes and have distinct characteristics suited to their respective applications. PLCs are typically used for local control within machinery or processes, while RTUs are used for remote monitoring and control of distributed assets in industrial infrastructure.
+
+
 
 ##### Difference Between Modbus TCP and S7comm 
 
@@ -70,6 +92,54 @@ Modbus TCP and S7Comm are both communication protocols used in OT environment in
    - **S7Comm:** Siemens has implemented various security features in S7Comm, such as encryption and authentication, to ensure secure communication between devices.
 
 In summary, while both Modbus TCP and S7Comm serve similar purposes in industrial automation, they differ in terms of their origin, vendor support, functionality, performance, and security features. The choice between them often depends on factors such as the specific requirements of the automation system, the compatibility with existing equipment, and the preferences of the system integrator or end-user.
+
+
+
+------
+
+### Project Design
+
+The PLC simulator program is a multithread program contents 4 part: 
+
+- **Real device/world connector**: A connector interface program simulate the PLC's contacts input which can linked to the virtual OT simulation program via TCP/UDP or to connect physical OT device via GPIO/Serial-COM. It will works as real PLC's (Contacts and Coils) to read or provide the virtual electrical signal regularly or real electrical signal constantly. The Contacts in ladder logic represent input conditions or switches, while coils represent output devices or actuators. 
+
+  
+
+- **Ladder logic diagram config file**: Software defined ladder logic which simulate the real ladder logic diagram used by real PLC. PLC simulator program will execute the ladder logic regularly to take the PLC's contacts' normally open (NO) or normally closed (NC), indicating whether the input condition is true or false, then do the coils energize or de-energize based on the logic conditions in the ladder diagram.
+
+  
+
+- **Modbus/S7somm server**: A Modbus-TCP or S7comm service to integrate the PLC simulate in to the SCADA system (ICS network) to allow other SCADA program/equipment such as HMI or remote display console to fetch data or change the PLC' setting.
+
+  
+
+- **PLC/RTU connection interface:** A interface to simulate linking multiple RTUs to the PLC or connect multiple PLCs master-slave connection (DCM-DCM with RS422 multi-dop connection) together to build a complex PLCs set. For PLC mater-slave configuration, please refer to this doc: appxa-plc-master-slave.pdf
+
+
+
+#### Design of the Virtual OT device simulation
+
+The interface use TCP/UDP message to simulate the electrical signal (voltage High or voltage low) changes. It can use both multiple UDP port to simulate multiple physical line or single UDP port to simulate multiple physical line. As shown below to simulate a voltage change in 12 second with 4 wire the simulation is shown in the below diagram: 
+
+![](doc/img/electiclSingalSimu.png)
+
+In the 12 seconds the electrical voltage connect to the PLC changed, in the simulation part we use the message 1 represent the electrical signal voltage high (5V) and use 0 represent electrical signal voltage low (0V). Based on the PLC simulator's data fetch clock setting, the real-world OT device emulation program will send 12 message to the PLC (every second one message )  to update the electical singal's change. For example in t=3sec, to simulate the PLC contact input volage [0V, 5V, 5V, 0V], the input message will be `{"timestamp" : 3, "W1" : 0, "W1" : 1, "W2" : 1,"W4" : 0 }`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
