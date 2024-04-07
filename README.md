@@ -47,11 +47,10 @@ The library will provide the following customizable functions for flexible syste
 - Simulation of multiple PLCs in master-slave connections (DCM-DCM with RS422 multi-drop connection).
 - Simulation of PLC access limitations (configuring IP address allow read list/allow set list).
 
-In this document, we will introduce the design and present three use cases of the PLC & RTU emulation program. 
+In this document, we will introduce the design and present Two use cases of the PLC & RTU emulation program. 
 
 - **Use Case 1:** Building a train control system using the PLC and RTU library.
 - **Use Case 2:** Demonstrating an OT-False-data injection attack for ICS cybersecurity training by utilizing the PLC system to build a clock-adjustable PLC.
-- **Use Case 3:** Developing a city-power-grid simulation system leveraging the capabilities of the system.
 
 
 
@@ -101,7 +100,7 @@ Modbus TCP and S7Comm are both communication protocols used in OT environment in
 
 The main different of Modbus TCP and S7comm
 
-| Feature        | Modbus TCP                                                   | S7comm                                                       |
+| Feature        | Modbus-TCP protocol                                          | S7comm protocol                                              |
 | -------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | Vendor Support | Being an open protocol, Modbus TCP is supported by a wide range of industrial automation equipment manufacturers. | S7Comm is proprietary to Siemens, so it's primarily used with Siemens PLCs and devices. |
 | Functionality  | Modbus TCP is relatively simple and lightweight, making it easy to implement and suitable for basic communication needs in industrial automation. It supports functions such as reading and writing data registers, reading input registers, and controlling discrete outputs. | S7Comm is more feature-rich and comprehensive, offering advanced functionality tailored specifically for Siemens PLCs. It supports a broader range of data types, diagnostic capabilities, and features like access to PLC hardware information. |
@@ -117,64 +116,78 @@ In summary, while both Modbus TCP and S7Comm serve similar purposes in industria
 
 ### Project Design
 
-The PLC simulator program is a multithread program contents 4 part: 
+#### Design of PLC Simulator Program
 
-- **Real device/world connector**: A connector interface program simulate the PLC's contacts input which can linked to the virtual OT simulation program via TCP/UDP or to connect physical OT device via GPIO/Serial-COM. It will works as real PLC's (Contacts and Coils) to read or provide the virtual electrical signal regularly or real electrical signal constantly. The Contacts in ladder logic represent input conditions or switches, while coils represent output devices or actuators. 
+The PLC simulator program is a multithreaded application consisting of four main components (the program module workflow diagram is shown below):
 
-  
+![](doc/img/plcworkflow.png)
 
-- **Ladder logic diagram config file**: Software defined ladder logic which simulate the real ladder logic diagram used by real PLC. PLC simulator program will execute the ladder logic regularly to take the PLC's contacts' normally open (NO) or normally closed (NC), indicating whether the input condition is true or false, then do the coils energize or de-energize based on the logic conditions in the ladder diagram.
+1. **Real Device/World Connector:** This component serves as a connector interface program that simulates the PLC's input contacts and output coils. It can link to virtual OT simulation programs via TCP/UDP or connect to physical OT devices via GPIO/Serial-COM. Similar to a real PLC, it reads or provides the virtual electrical signals periodically or the real electrical signals continuously.
+2. **Ladder Logic Diagram Configuration File:** This component defines the software-based ladder logic, simulating the actual ladder logic diagrams used in real PLCs. The PLC simulator program executes this ladder logic in real time when the contacts state change (In ladder logic, contacts represent input conditions or switches, while coils represent output devices or actuators), assessing the status of the PLC's contacts (whether they are normally open (NO) or normally closed (NC)) to determine true or false input conditions. Based on these logic conditions, coils are energized or de-energized as specified in the ladder logic.
+3. **Modbus/S7Comm Server:** This component functions as a Modbus-TCP or S7Comm service or both, integrating the PLC simulator into the real SCADA system (Industrial Control System network). This integration allows other SCADA programs or application, such as Human-Machine Interfaces (HMIs) or remote display consoles, to fetch data from or change settings in the PLC.
+4. **PLC/RTU Connection Interface:** This interface simulates the connection of multiple RTUs to the PLC or establishes master-slave connections between multiple PLCs (DCM-DCM with RS422 multi-drop connection). It enables the creation of complex PLC setups. For PLC master-slave configuration details, please refer to the documentation: appxa-plc-master-slave.pdf.
 
-  
+#### Design of RTU Simulator Program
 
-- **Modbus/S7somm server**: A Modbus-TCP or S7comm service to integrate the PLC simulate in to the SCADA system (ICS network) to allow other SCADA program/equipment such as HMI or remote display console to fetch data or change the PLC' setting.
+The RTU simulator program follows a similar design to the PLC simulator but with a simpler structure comprising only two components: the Real Device/World Connector and the S7Comm Server. Additionally, it incorporates a straightforward memory processing logic to handle memory values. This logic may involve tasks such as calculating average speed or checking if the maximum temperature exceeds a predefined threshold. The program module workflow diagram is shown below:
 
-  
+![](doc/img/rtuWorkflow.png)
 
-- **PLC/RTU connection interface:** A interface to simulate linking multiple RTUs to the PLC or connect multiple PLCs master-slave connection (DCM-DCM with RS422 multi-dop connection) together to build a complex PLCs set. For PLC mater-slave configuration, please refer to this doc: appxa-plc-master-slave.pdf
+#### Design of the Virtual OT Device simulation
 
-
-
-#### Design of the Virtual OT device simulation
-
-The interface use TCP/UDP message to simulate the electrical signal (voltage High or voltage low) changes. It can use both multiple UDP port to simulate multiple physical line or single UDP port to simulate multiple physical line. As shown below to simulate a voltage change in 12 second with 4 wire the simulation is shown in the below diagram: 
+The virtual OT device interface utilizes TCP/UDP messages to simulate changes in electrical signals, representing voltage levels as either high or low. It can employ multiple TCP/UDP ports to simulate multiple physical lines or a single UDP port to simulate multiple physical lines simultaneously. The TCP/UDP message format follow `{ "timestamp" : <timesstamp val>, "wire1": <electrical signal change on wire1>, ..., "wire N": <electrical siganl on wireN> }` . For instance, to simulate a voltage change over a 12-second period across four wires, the simulation is depicted in the diagram below:
 
 ![](doc/img/electiclSingalSimu.png)
 
-In the 12 seconds the electrical voltage connect to the PLC changed, in the simulation part we use the message 1 represent the electrical signal voltage high (5V) and use 0 represent electrical signal voltage low (0V). Based on the PLC simulator's data fetch clock setting, the real-world OT device emulation program will send 12 message to the PLC (every second one message )  to update the electical singal's change. For example in t=3sec, to simulate the PLC contact input volage [0V, 5V, 5V, 0V], the input message will be `{"timestamp" : 3, "W1" : 0, "W1" : 1, "W2" : 1,"W4" : 0 }`
+During the 12-second interval, the electrical voltage connected to the PLC undergoes changes. In the simulation, a value of "1" represents a high electrical signal (5V), while "0" represents a low electrical signal (0V). Based on the PLC simulator's data fetch clock setting, the real-world OT device emulation program will send 12 messages to the PLC, with one message being transmitted every second to update the electrical signal changes. For example, at t=3sec, to simulate the PLC contact input voltages as [ 0V, 5V, 5V, 0V ], the input message would be `{"timestamp": 3, "W1": 0, "W2": 1, "W3": 1, "W4": 0}`.
+
+For the RTU sensor reading, the message format is `{ "timestamp" : <timesstamp val>, "sensor1": [<sensor1 data>, <data1 type>], ..., "sensor N": [<sensorN data>, <dataN type>] }`
 
 
 
-The RTU simulator program is a multithread program contents 3 part: 
+------
 
-- **Real device/world connector**: A connector interface program simulate the RTU sensor input which can linked to the virtual OT simulation program via TCP/UDP or to connect physical OT device via GPIO/Serial-COM. It will works as real RTU  to read or provide the virtual electrical signal regularly or real electrical signal constantly. 
-- **RTU Logic config file**: Software defined  logic which simulate the data process logic in the RTU. Such as calculate the average speed based on the speed sensor, check whether the max temperature reach to the threshold based on the temperature sensor reading.
-- **S7somm server**: A S7comm service to integrate the RTU simulator in to the SCADA system (ICS network) to allow other SCADA program/equipment such as HMI or remote display console to fetch data or change the RTU' setting.
+### Project Usage Cases
 
+In this section we will introduce 3 use cases of the PLC and RTU simulators. 
 
+##### Use Case 1: Building a train control system with PLC and RTU
 
+In this train control system scenario, we employ one PLC simulator to manage the third railway track's power supply, along with a Train RTU tasked with reading sensor data onboard the train. Additionally, we utilize another on-board Train PLC to read essential functions such as motor throttle, braking, front collision radar, and the auto-collision avoidance mechanism. The system workflow is depicted below:
 
+![](doc/img/useCase1.png)
 
-
-
-
-
-
+The railway dispatches power control PLC sends signals to the Human-Machine Interface (HMI) via Modbus-TCP, while the on-board RTU transmits train data to the HMI using S7Comm through a wireless connection. All the on train PLC and RTU will also be controlled by the train driver console. 
 
 
 
+##### Use Case 2: PLC False-Data Injection Attack Demonstration
+
+Given the adjustability of the PLC simulator's execution clock,  the ISC security training instructors can effectively demonstrate the implementation of false data injection attacks on PLCs. This allows for a comparison between the injection rate of fake data on the simulator versus a real PLC. The clock configuration is detailed below:
+
+![](doc/img/FDIclock.png)
+
+When utilizing a real PLC, due to its high clock frequency, injecting data at the necessary speed and precise timing, just before ladder logic execution, becomes challenging. However, with the PLC simulator, instructors can extend the clock time interval significantly, facilitating the occurrence and observation of the injection attack's effects.
 
 
 
+------
 
 
 
+### Reference : 
+
+- https://medium.com/@pt.artem/how-to-use-python-to-build-a-simple-client-server-based-on-the-s7-protocol-f4b96e563cc1
+
+- https://python-snap7.readthedocs.io/en/latest/_modules/snap7/server.html#Server
 
 
-This is the main simulator UI:
+------
 
-![](DesignDoc/img/mainUI.png)
+#### Problem and Solution
 
-https://medium.com/@pt.artem/how-to-use-python-to-build-a-simple-client-server-based-on-the-s7-protocol-f4b96e563cc1
+Refer to `doc/ProblemAndSolution.md`
 
-https://python-snap7.readthedocs.io/en/latest/_modules/snap7/server.html#Server
+------
+
+> last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 07/04/2024 if you have any problem, please send me a message. 
