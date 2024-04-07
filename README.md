@@ -12,11 +12,9 @@ The project consists of three primary components:
 
 - **Real-world Communication Interface**: This component offers a communication interface library that facilitates the connection between the electrical output of PLCs/RTUs and physical devices or virtual real-world emulator programs. For the virtual OT device, the library offers TCP/UDP functionalities for communication with virtual real-world device emulators. For the physical device, the library provides  Raspberry Pi or BeagleBone Black's GPIO pins I/O capabilities for connect to the physical wires and Serial capabilities for communication via USB to connect to the physical OT device whish has RS232/RS485 connectors.
 
-  
-
 The system overview is shown below : 
 
-![](doc/img/overview.png)
+![](doc/img/system.png)
 
 ```
 # version:     v0.1.3
@@ -33,19 +31,27 @@ The system overview is shown below :
 
 ### Introduction
 
-There are some PLC simulation program in the market such as the OpenPLC, but most of then didn't provide the interface to connect different OT device especially for the software virtualized OT device, or their setting are not flexible to change for the demonstration request for OT security such as adjust the PLC clock time interval. And most of then didn't provide the function to virtualize a RTU in the OT environment/ We want to develop virtual PLC and RTU emulator program which can auto run simple ladder logic and provided below customized function for flexible usage: 
+While there are existing PLC simulation programs in the market, such as [OpenPLC](https://autonomylogic.com/), many of them lack the capability to interface with different Operational Technology (OT) devices, especially software-virtualized ones. Additionally, their settings often lack flexibility, hindering adjustments necessary for demonstrating OT security measures, such as modifying PLC clock time intervals. Moreover, few programs offer the functionality to virtualize RTUs within the OT environment. Our objective is to develop cross-platform Python library with virtual PLC and RTU emulator program and the related interface which user can use them to build/simulate the components from level-0 layer(Field I/O device) to level-2/3 layer(Operations management Zone ) on the OT system, as illustrated below:
 
-- Provide Modbus-TCP communication to simulate Modbus PLC such as Schneider M22X. 
-- Provide S7comm communication to simulate S7comm-bus PLC such as Siemens S71200, 
-- Customized software define ladder diagram execution priority 
-- UDP interface for electrical signal (such as voltage) connection emulation to connect to the real world.
-- Simulate the PLC ladder logic execution with customizable time clock cycle configuration for education purpose. 
-- Simulate the multiple PLCs master-slave connection (DCM-DCM with RS422 multi-dop connection).
-- Simulate the PLC access limitation (IP addresses allow read list / allow set list) config. 
+![](doc/img/OTlayer2.png)
 
-In this document we will introduce the desing and 2 use case of the PLC emulation program.
+> OT-layer diagram reference: https://www.redseal.net/purdue-2-0-exploring-a-new-model-for-it-ot-management/
 
+The library will provide the following customizable functions for flexible system build usage:
 
+- Provide Modbus-TCP communication to simulate Modbus PLCs, such as Schneider M22X.
+- Provide S7Comm communication to simulate S7Comm-bus PLCs, such as Siemens S7-1200.
+- Provide customized PLC ladder diagram to python function conversion and software-defined  execution priority.
+- Provide UDP interface for emulating electrical signal (e.g., voltage, current, pressure) connections to the real world physical/virtual OT device.
+- Simulation of PLC ladder logic execution with customizable time clock cycle configurations for educational purposes.
+- Simulation of multiple PLCs in master-slave connections (DCM-DCM with RS422 multi-drop connection).
+- Simulation of PLC access limitations (configuring IP address allow read list/allow set list).
+
+In this document, we will introduce the design and present three use cases of the PLC & RTU emulation program. 
+
+- **Use Case 1:** Building a train control system using the PLC and RTU library.
+- **Use Case 2:** Demonstrating an OT-False-data injection attack for ICS cybersecurity training by utilizing the PLC system to build a clock-adjustable PLC.
+- **Use Case 3:** Developing a city-power-grid simulation system leveraging the capabilities of the system.
 
 
 
@@ -53,49 +59,55 @@ In this document we will introduce the desing and 2 use case of the PLC emulatio
 
 ### Background Knowledge 
 
+In this section, we will provide an basic background knowledge introduction to two widely used OT-Field-Controllers: PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit), along with the protocols used to connect to these controllers from OT layer 2 and layer 3: Modbus TCP and S7Comm.
 
+#### Introduction of PLC and RTU 
 
-PLC (Programmable Logic Controller) and RTU (Remote Terminal Unit) are both types of industrial control devices used in automation and monitoring systems, but they have different characteristics and applications:
+**PLC (Programmable Logic Controller)**: PLCs are programmable devices designed primarily for controlling machinery and processes in industrial environments. They are used to automate sequences of operations, monitor inputs from sensors, and control outputs to actuators based on programmed logic.
 
-1. **Function and Purpose:**
-   - **PLC (Programmable Logic Controller):** PLCs are programmable devices designed primarily for controlling machinery and processes in industrial environments. They are used to automate sequences of operations, monitor inputs from sensors, and control outputs to actuators based on programmed logic.
-   - **RTU (Remote Terminal Unit):** RTUs are specialized devices used primarily for remote monitoring and control of distributed assets in industrial applications, such as in oil and gas pipelines, water distribution systems, and electrical substations. They typically collect data from sensors and equipment in remote locations and transmit it to a central control system for monitoring and analysis.
-2. **Architecture:**
-   - **PLC:** PLCs are standalone controllers with built-in processing capabilities, memory, and input/output (I/O) modules. They are often used for local control within a single machine or process. The communication protocol used for PLC are Modbus or S7Comm
-   - **RTU:** RTUs are often part of a larger SCADA (Supervisory Control and Data Acquisition) system. They are designed to interface with sensors and devices in remote locations and communicate data back to a central SCADA master station using communication protocols such as S7Comm, DNP3, or IEC 60870.
-3. **I/O Capacity:**
-   - **PLC:** PLCs typically have a limited number of I/O points (inputs and outputs) built into the controller itself. However, they can often be expanded with additional I/O modules to accommodate larger systems.
-   - **RTU:** RTUs are designed to handle a larger number of I/O points distributed across remote locations. They may have multiple communication ports to connect to various sensors, instruments, and control devices.
-4. **Programming and Logic:**
-   - **PLC:** PLCs are programmed using ladder logic, function block diagrams, structured text, or other programming languages tailored for industrial control applications. The programming is focused on implementing logic to control sequences of operations.
-   - **RTU:** RTUs are typically programmed using simpler configuration tools rather than full-fledged programming languages. The emphasis is on configuring data acquisition parameters, communication settings, and alarm thresholds rather than implementing complex control logic.
-5. **Environmental Considerations:**
-   - **PLC:** PLCs are often designed to operate in harsh industrial environments with high temperatures, humidity, and vibration. They are built to withstand these conditions and maintain reliable operation.
-   - **RTU:** RTUs are also ruggedized for outdoor or remote installations, but they may have additional features such as extended temperature ranges and protective enclosures to withstand extreme environmental conditions encountered in remote locations.
+**RTU (Remote Terminal Unit):** RTUs are specialized devices used primarily for remote monitoring and control of distributed assets in industrial applications, such as in oil and gas pipelines, water distribution systems, and electrical substations. They typically collect data from sensors and equipment in remote locations and transmit it to a central control system for monitoring and analysis.
+
+The PLC and RTU has function overlay, the may different between them are: 
+
+| Feature Difference           | Programmable Logic Controller                                | Remote Terminal Unit                                         |
+| ---------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Architecture                 | PLCs are standalone controllers with built-in processing capabilities, memory, and input/output (I/O) modules. They are often used for local control within a single machine or process. The communication protocol used for PLC are Modbus or S7Comm | RTUs are often part of a larger SCADA (Supervisory Control and Data Acquisition) system. They are designed to interface with sensors and devices in remote locations and communicate data back to a central SCADA master station using communication protocols such as S7Comm, DNP3, or IEC 60870. |
+| I/O Capacity                 | PLCs typically have a limited number of I/O points (inputs and outputs) built into the controller itself. However, they can often be expanded with additional I/O modules to accommodate larger systems. | RTUs are designed to handle a larger number of I/O points distributed across remote locations. They may have multiple communication ports to connect to various sensors, instruments, and control devices. |
+| Programming and Logic        | PLCs are programmed using ladder logic, function block diagrams, structured text, or other programming languages tailored for industrial control applications. The programming is focused on implementing logic to control sequences of operations. | RTUs are typically programmed using simpler configuration tools rather than full-fledged programming languages. The emphasis is on configuring data acquisition parameters, communication settings, and alarm thresholds rather than implementing complex control logic. |
+| Environmental Considerations | PLCs are often designed to operate in harsh industrial environments with high temperatures, humidity, and vibration. They are built to withstand these conditions and maintain reliable operation. | RTUs are also ruggedized for outdoor or remote installations, but they may have additional features such as extended temperature ranges and protective enclosures to withstand extreme environmental conditions encountered in remote locations. |
+|                              |                                                              |                                                              |
 
 In summary, while PLCs and RTUs are both used for industrial automation and control, they serve different purposes and have distinct characteristics suited to their respective applications. PLCs are typically used for local control within machinery or processes, while RTUs are used for remote monitoring and control of distributed assets in industrial infrastructure.
 
+> For more detail info please refer to this: https://www.plctable.com/plc-vs-rtu/#:~:text=PLCs%20are%20faster%20and%20more,distributed%20over%20a%20large%20area.
 
 
-##### Difference Between Modbus TCP and S7comm 
+
+#### Introduction of Modbus-TCP and S7comm
 
 Modbus TCP and S7Comm are both communication protocols used in OT environment industrial automation, but they are associated with different manufacturers and have some differences in their features and implementations:
 
-1. **Origin and Manufacturers:**
-   - **Modbus TCP:** Modbus is an open-source protocol developed by Modicon (now Schneider Electric). Modbus TCP is an Ethernet-based implementation of the Modbus protocol.
-   - **S7Comm:** S7Comm is a protocol developed by Siemens for communication with their programmable logic controllers (PLCs), primarily in the Simatic S7 series.
-2. **Vendor Support:**
-   - **Modbus TCP:** Being an open protocol, Modbus TCP is supported by a wide range of industrial automation equipment manufacturers.
-   - **S7Comm:** S7Comm is proprietary to Siemens, so it's primarily used with Siemens PLCs and devices.
-3. **Functionality and Features:**
-   - **Modbus TCP:** Modbus TCP is relatively simple and lightweight, making it easy to implement and suitable for basic communication needs in industrial automation. It supports functions such as reading and writing data registers, reading input registers, and controlling discrete outputs.
-   - **S7Comm:** S7Comm is more feature-rich and comprehensive, offering advanced functionality tailored specifically for Siemens PLCs. It supports a broader range of data types, diagnostic capabilities, and features like access to PLC hardware information.
-4. **Performance and Efficiency:**
-   - **Modbus TCP:** Modbus TCP tends to be simpler and lighter, which can result in lower overhead and faster communication in certain scenarios, especially for smaller-scale systems.
-   - **S7Comm:** S7Comm may offer better performance and efficiency in larger and more complex industrial automation environments due to its optimized design for Siemens PLCs.
-5. **Security:**
-   - **Modbus TCP:** Modbus TCP lacks built-in security features, although it can be used over VPNs or in conjunction with additional security measures to secure communication.
-   - **S7Comm:** Siemens has implemented various security features in S7Comm, such as encryption and authentication, to ensure secure communication between devices.
+**Modbus TCP:** Modbus is an open-source protocol developed by Modicon (now Schneider Electric). Modbus TCP is an Ethernet-based implementation of the Modbus protocol. The Modbus data packet structure is shown below:
+
+![](doc/img/modbusPacket.png)
+
+> Reference : https://www.throughput.co.za/protocols/modbus-tcp-protocols.html
+
+**S7Comm:** S7Comm is a protocol developed by Siemens for communication with their programmable logic controllers (PLCs), primarily in the Simatic S7 series. The S7Comm data packet structure is shown below:
+
+![](doc/img/s7commPacket.png)
+
+> Reference: https://blog.viettelcybersecurity.com/security-wall-of-s7commplus-part-1/
+
+The main different of Modbus TCP and S7comm
+
+| Feature        | Modbus TCP                                                   | S7comm                                                       |
+| -------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Vendor Support | Being an open protocol, Modbus TCP is supported by a wide range of industrial automation equipment manufacturers. | S7Comm is proprietary to Siemens, so it's primarily used with Siemens PLCs and devices. |
+| Functionality  | Modbus TCP is relatively simple and lightweight, making it easy to implement and suitable for basic communication needs in industrial automation. It supports functions such as reading and writing data registers, reading input registers, and controlling discrete outputs. | S7Comm is more feature-rich and comprehensive, offering advanced functionality tailored specifically for Siemens PLCs. It supports a broader range of data types, diagnostic capabilities, and features like access to PLC hardware information. |
+| Performance    | Modbus TCP tends to be simpler and lighter, which can result in lower overhead and faster communication in certain scenarios, especially for smaller-scale systems. | S7Comm may offer better performance and efficiency in larger and more complex industrial automation environments due to its optimized design for Siemens PLCs. |
+| Security       | Modbus TCP lacks built-in security features, although it can be used over VPNs or in conjunction with additional security measures to secure communication. | Siemens has implemented various security features in S7Comm, such as encryption and authentication, to ensure secure communication between devices. |
+|                |                                                              |                                                              |
 
 In summary, while both Modbus TCP and S7Comm serve similar purposes in industrial automation, they differ in terms of their origin, vendor support, functionality, performance, and security features. The choice between them often depends on factors such as the specific requirements of the automation system, the compatibility with existing equipment, and the preferences of the system integrator or end-user.
 
