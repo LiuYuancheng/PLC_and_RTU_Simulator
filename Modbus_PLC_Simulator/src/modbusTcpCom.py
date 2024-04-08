@@ -22,7 +22,7 @@
     
     Four modules will be provided in this module: 
 
-    - ladderLogic: An obj class hold the ladder logic calculation algorithm, it will take the 
+    - ladderLogic: An interface class hold the ladder logic calculation algorithm, it will take the 
         holding register's state, source coils state then generate the destination coils states.
         For example below ladder logic:
         --|reg-00|--|reg-01|----------------------(src-coil-00)------------(dest-coil-02)---
@@ -47,7 +47,7 @@
 
     - modbusTcpServer: Modbus-TCP server module will be used by PLC module to handle the modbus 
         data read/set request. If the input data handler is None, the server will create and keep 
-        one empt databank inside.
+        one empty databank inside.
 """
 
 import time

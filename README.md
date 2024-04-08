@@ -149,7 +149,7 @@ For the RTU sensor reading, the message format is `{ "timestamp" : <timesstamp v
 
 ### Project Usage Cases
 
-In this section we will introduce 3 use cases of the PLC and RTU simulators. 
+In this section we will introduce two use cases of the PLC and RTU simulators. 
 
 ##### Use Case 1: Building a train control system with PLC and RTU
 
