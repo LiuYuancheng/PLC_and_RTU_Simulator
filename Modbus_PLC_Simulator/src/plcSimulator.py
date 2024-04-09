@@ -46,6 +46,7 @@ def parseIncomeMsg(msg):
     except Exception as err:
         Log.error('parseIncomeMsg(): The income message format is incorrect.')
         Log.exception(err)
+        return (reqKey, reqType, reqJsonStr)
     return (reqKey.strip(), reqType.strip(), reqJsonStr)
 
 #-----------------------------------------------------------------------------
