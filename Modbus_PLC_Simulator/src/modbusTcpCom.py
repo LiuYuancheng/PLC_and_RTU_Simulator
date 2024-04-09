@@ -373,12 +373,12 @@ class modbusTcpServer(object):
     """ Modbus-TCP server, used by PLC module to handle the modbus data read/set 
         request.
     """
-    def __init__(self, hostIp='localhost', hostPort=502, dataHandler=None) -> None:
+    def __init__(self, hostIp='0.0.0.0', hostPort=502, dataHandler=None) -> None:
         """Init example:
             dataMgr = modbusTcpCom.plcDataHandler(allowRipList=ALLOW_R_L, allowWipList=ALLOW_W_L)
             server = modbusTcpCom.modbusTcpServer(hostIp=hostIp, hostPort=hostPort, dataHandler=dataMgr)
         Args:
-            hostIp (str, optional): '0.0.0.0' or 'localhost'. Defaults to 'localhost'.
+            hostIp (str, optional): '0.0.0.0' or 'localhost'. Defaults to '0.0.0.0'.
             hostPort (int, optional): modbus port. Defaults to 502.
             dataHandler (<plcDataHandler>, optional): The handler object to auto process 
                 register and coils change. Defaults to None.

@@ -13,22 +13,18 @@
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+""" Program Design:
+    A RTU simulator interface module with 3 components: 
 
-"""
-Program Design:
+    - RealWorldConnector: A UDP/TCP client to fetch and parse the data from the real world
+        simulation app and update the real world components. (simulate fetch electrical 
+        signal from sensor and change the switch state)
 
-A RTU simulator interface module with 3 components: 
-
-- RealWorldConnector: A UDP/TCP client to fetch and parse the data from the real world
-    simulation app and update the real world components. (simulate fetch electrical 
-    signal from sensor and change the switch state)
-
-- s7CommService: A sub-threading service class to run the S7Comm server parallel with 
-    the main program thread. 
-    
-- rtuSimuInterface: A interface class with the basic function for the user to inherit 
-    it to build their RTU module.
-
+    - s7CommService: A sub-threading service class to run the S7Comm server parallel with 
+        the main program thread. 
+        
+    - rtuSimuInterface: A interface class with the basic function for the user to inherit 
+        it to build their RTU module.
 """
 
 import os
@@ -162,6 +158,9 @@ class RealWorldConnector(object):
         else:
             Log.error("queryBE: input missing: %s" %str(rqstKey, rqstType, rqstDict))
         return (k, t, result)
+
+    def stop(self):
+        self.rwConnector.disconnect()
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -312,7 +311,7 @@ class rtuSimuInterface(object):
         return self.rtuID
 
     def getRWInputInfo(self):
-        """ Get sensors state from the real-world simulator. """
+        """ Get sensors state from the real-world simulator app. """
         rqstDict = {}
         for key in self.regsStateRW.keys():
             rqstDict[key] = None
@@ -348,4 +347,7 @@ class rtuSimuInterface(object):
 #-----------------------------------------------------------------------------
     def stop(self):
         self.terminate = True
+        self.s7Service.stop()
+        self.rwConnector.stop()
+
 
