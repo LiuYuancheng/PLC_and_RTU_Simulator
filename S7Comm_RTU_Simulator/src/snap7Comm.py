@@ -21,18 +21,18 @@
     to read the data from a real PLC/RTU or simulate the PLC/RTU S7comm data handling 
     process (handle S7commm request from other program).
 
-    Three modules will be provided in this module:
+    Three components will be provided in this module:
     
     - ladder logic interface: An interface class hold the ladder logic calculation algorithm.
         The ladder logic obj class will inherit this interface class by overwritten the init() 
-        and runLadderLogic() function by adding the memory infor and the detail control.
+        and runLadderLogic() function by adding the memory info and the detail control.
         for example speed value save on memory Idx=0, dataIdx=0 and check whether the val more 
         than the threshold then write the result to memory Idx=0 dataIdx=2:
         1. Overwrite the initLadderInfo() to set the src and dest address info.
         2. Overwrite the runLadderLogic() to do the value check and memory udpate.
         3. Use or pass the ladder logic object in a handlerS7request() function.
 
-    - S7CommClient: S7Comm client moduel to read src memory val or write target val 
+    - S7CommClient: S7Comm client module to read src memory val or write target val 
         from/to the target PLC/RTU. 
         
     - S7CommServer: S7Comm  server module will be used by RTU/PLC module to handle the S7Comm

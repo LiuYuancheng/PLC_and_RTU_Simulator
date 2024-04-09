@@ -3,7 +3,7 @@
 # Name:        rtuSimulator.py
 #
 # Purpose:     A simple RTU simulation lib module to connect and control the real-world 
-#              emulator via UDP (to simulate the eletrical signals changes) and handle
+#              emulator via UDP (to simulate the electrical signals changes) and handle
 #              SCADA system S7Comm request.
 # 
 # Author:      Yuancheng Liu
@@ -20,11 +20,11 @@ Program Design:
 A RTU simulator interface module with 3 components: 
 
 - RealWorldConnector: A UDP/TCP client to fetch and parse the data from the real world
-    simulation app and update the real world components. (simuldate fetch electrical 
+    simulation app and update the real world components. (simulate fetch electrical 
     signal from sensor and change the switch state)
 
 - s7CommService: A sub-threading service class to run the S7Comm server parallel with 
-    the the main program thread. 
+    the main program thread. 
     
 - rtuSimuInterface: A interface class with the basic function for the user to inherit 
     it to build their RTU module.
