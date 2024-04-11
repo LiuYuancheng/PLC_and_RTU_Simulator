@@ -3,7 +3,7 @@
 # Name:        plcSimulator.py
 #
 # Purpose:     A simple PLC simulation lib module to connect and control the real-world 
-#              emulator via UDP (to simulate the eletrical signals change) and handle
+#              emulator via UDP (to simulate the electrical signals change) and handle
 #              SCADA system Modbus TCP request.
 # 
 # Author:      Yuancheng Liu
@@ -14,14 +14,14 @@
 # License:     MIT License
 #-----------------------------------------------------------------------------
 """ Program Design:
-    A RTU simulator interface module with 3 components: 
+    A PLC simulator interface module with 3 components: 
 
     - RealWorldConnector: A UDP/TCP client to fetch and parse the data from the real world
         simulation app and update the real world components. (simulate fetch electrical 
         signal from sensor and change the switch state)
 
     - modBusService: A sub-threading service class to run the Modbus-TCP server parallel with 
-        the main program thread to handler the Modhbus request.
+        the main program thread to handler the Modbus TCP request.
 
     - plcSimuInterface: A interface class with the basic function for the user to inherit 
         it to build their PLC module.

@@ -46,7 +46,7 @@ A simple RTU simulation lib module to connect and control the real-world emulato
 
 - `RealWorldConnector`: A UDP client to fetch and parse the data from the real world simulation app and update the real world components. (i.e. Simulate fetching the electrical signal from sensors and change the switches' state, For the RTU sensor reading, the message format is `{ "timestamp" : <timesstamp val>, "sensor1": [<sensor1 data>, <data1 type>], ..., "sensor N": [<sensorN data>, <dataN type>] }`) 
 - `s7CommService`: A sub-threading service to run the S7Comm server parallel with the main program thread to handle the OT system level-2/3 components request. 
-- `rtuSimuInterface`: A interface class with the basic function for the user to inherit it to build their RTU module.
+- `rtuSimuInterface`: A interface class with the basic RTU function for the user to inherit it to build their RTU module.
 
 #### Module 2: snap7Comm
 
@@ -62,7 +62,11 @@ This module will provide a packaged Siemens S7Comm client and server communicati
 
 ### Program Setup
 
-Follow the below configuration steps before run the program.
+Follow the below configuration before run the program. The library folder contents 3 section in different sub folders:
+
+- `S7Comm_RTU_Simulator / src` : All the python library files are under this folder, you can develop you app in this folder by import them or copy it in your project. 
+- `S7Comm_RTU_Simulator / testcase`: The RTU server and client test case programs, you can follow the code to integrate the S7Comm client and server in your program.
+- `S7Comm_RTU_Simulator / example`:  The detail example to use the lib to create a complex RTU simulation program.(You can follow the design in the example, but the example program may not be execute directly)
 
 ##### Development Environment
 
@@ -78,12 +82,12 @@ Follow the below configuration steps before run the program.
 
 | Program File                 | Execution Env | Description                                                  |
 | ---------------------------- | ------------- | ------------------------------------------------------------ |
-| src/rtuSimulator.py          | python 3.7 +  | The main RTU simulator lib provides the simulator interface, Real world Emulation App connector and the S7Comm sub-threading service. |
+| src/rtuSimulator.py          | python 3.7 +  | The main RTU simulator lib provides the simulator interface, real world emulation App connector and the S7Comm sub-threading service. |
 | src/snap7.dll                | Windows-OS    | The Windows OS platform Snap7 lib dll file.                  |
 | src/snap7Comm.py             | python 3.7 +  | The S7Comm protocol handling lib provides the S7Comm client, server and the RTU internal logic execution interface. |
 | src/udpCom.py                | python 3.7 +  | UDP communication handling library module.                   |
-| testCase/rtuClientTest.py    | python 3.7 +  | The test case of the `<snap7Comm.py>` lib module to test as a HMI to connect to a RTU simulator. |
-| testCase/rtuServerTest.py    | python 3.7 +  | The test case of the `<snap7Comm.py>` lib module to test as a RTU to handle the HMI's connection request. |
+| testcase/rtuClientTest.py    | python 3.7 +  | The test case of the `<snap7Comm.py>` lib module to test as a HMI to connect to a RTU simulator. |
+| testcase/rtuServerTest.py    | python 3.7 +  | The test case of the `<snap7Comm.py>` lib module to test as a RTU to handle the HMI's connection request. |
 | example/rtuSimulatorTrain.py | python 3.7 +  | An example of how to inherit the rtuSimulator interface to build a customized  RTU application. |
 
 
@@ -96,31 +100,31 @@ To create a S7comm server, follow the example in test case program `rtuServerTes
 
 ##### Run the Test Case
 
-Run rtuServerTest.py: 
+Run RTU server testcase program: 
 
-```
+```shell
 WinOS: python rtuServerTest.py	LinuxOS: sudo python3 rtuServerTest.py
 ```
 
-Run rtuClientTest.py:
+Run RTU client testcase program:
 
-```
+```shell
 WinOS: python rtuClientTest.py	LinuxOS: sudo python rtuClientTest.py
 ```
 
 ##### Build a Customized RTU
 
-To build a Customized RTU please import the `rtuSimulator` and follow the example `rtuSimulatorTrain.py` with the below steps: 
+To build a customized RTU,  please import the `rtuSimulator` and follow the example `rtuSimulatorTrain.py` with the below steps: 
 
 **Step 1**: Inherit the RTU simulator interface class : 
 
-```
+```python
 class trainPowerRtu(rtuSimulator.rtuSimuInterface):
 ```
 
-**Step2**: Overwrite the private function `_initRealWorldConnectionParm` if need to set special parameters:
+**Step-2**: Overwrite the private function `_initRealWorldConnectionParm` if need to set special parameters:
 
-```
+```python
 def _initRealWorldConnectionParm(self):
 	self.regSRWfetchKey = gv.gRealWorldKey 
 ```
@@ -129,7 +133,7 @@ As shown in the above example code, we need to set the RTU identify key to link 
 
 **Step3**: Initialize the RTU memory address you want to use to storge the data:
 
-```
+```python
    def _initMemoryAddrs(self):
         s7commServer = self.s7Service.getS7ServerRef()
         s7commServer.initNewMemoryAddr(1, [0, 2, 4, 6], [BOOL_TYPE, INT_TYPE, INT_TYPE, INT_TYPE])
@@ -154,7 +158,7 @@ As shown above example code, we want to use 10 memory addresses to store 40 para
 
 **Step4**: Init the memory's default value:
 
-```
+```python
 def _initMemoryDefaultVals(self):
 	s7commServer = self.s7Service.getS7ServerRef()
 	s7commServer.setMemoryVal(1, 4, 3)
@@ -164,7 +168,7 @@ As shown above example code, we want to set address `0x00000001`' s byte index [
 
 **Step5**: Overwrite the `_updateMemory()` function to process the memory changes every time RTU got the OT device data feed back.
 
-```
+```python
 def _updateMemory(self, result):
 s7commServer = self.s7Service.getS7ServerRef()
 for key, value in self.regsStateRW.items():
@@ -185,14 +189,12 @@ As shown above example code, if you want to update some other memory address' va
 If the user want to build a complex ladder logic which execute inside the RTU, they can inherit the `snap7Comm.rtuLadderLogic` class. For example if speed value save on memory Idx=0, dataIdx=0 and check whether the val more than the threshold then write the result to memory Idx=0 dataIdx=2:
 
 1. Overwrite the `initLadderInfo()` to set the src and dest address info.
-
-​    2. Overwrite the `runLadderLogic()` to do the value check and memory update.
-
-    3. Use or pass the ladder logic object in a handlerS7request() function.
+2. Overwrite the `runLadderLogic()` to do the value check and memory update.
+3. Use or pass the ladder logic object in a handlerS7request() function.
 
 This is a example to build a test ladder logic in the server test case code you can follow: 
 
-```
+```python
 class testLadderLogic(snap7Comm.rtuLadderLogic):
 
     def __init__(self, parent, nameStr):
@@ -222,7 +224,7 @@ testRtuLL = testLadderLogic(server, 'testRtuLL')
 
 Import the ladder logic in your customized RTU: 
 
-```
+```python
 # The auto data handling function.
 def handlerS7request(parmList):
     """ ladder logic simulation function: when the user set the address Idx=2
@@ -239,7 +241,7 @@ server.startService(eventHandlerFun=handlerS7request)
 
 If you the logic is very simple, you can also implement in the handler function directly as shown in the below example:
 
-```
+```python
 def handlerS7request_old(parmList):
     """ ladder logic simulation function: when the user set the address Idx=2
         and dataIdx = 4 value, the ladder logic will change the address Idx=2

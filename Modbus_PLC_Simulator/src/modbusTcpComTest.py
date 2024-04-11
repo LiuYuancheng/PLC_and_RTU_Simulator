@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 # Name:        modbusTcpComTest.py
 #
-# Purpose:     testcase program used to test lib moodule <modbusTcpCom.py> 
+# Purpose:     testcase program used to test lib module <modbusTcpCom.py> 
 #
 # Author:      Yuancheng Liu, Jun Heng Sim
 #

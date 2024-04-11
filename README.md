@@ -27,6 +27,25 @@ The system overview is shown below :
 
 [TOC]
 
+- [Python Virtual PLC & RTU Simulator](#python-virtual-plc---rtu-simulator)
+    + [Introduction](#introduction)
+    + [Background Knowledge](#background-knowledge)
+      - [Introduction of PLC and RTU](#introduction-of-plc-and-rtu)
+      - [Introduction of Modbus-TCP and S7comm](#introduction-of-modbus-tcp-and-s7comm)
+    + [Project Design](#project-design)
+      - [Design of PLC Simulator Program](#design-of-plc-simulator-program)
+      - [Design of RTU Simulator Program](#design-of-rtu-simulator-program)
+      - [Design of the Virtual OT Device simulation](#design-of-the-virtual-ot-device-simulation)
+    + [Project Usage](#project-usage)
+      - [Library Usage Detail](#library-usage-detail)
+      - [Project Usage Cases](#project-usage-cases)
+        * [Use Case 1: Building a train control system with PLC and RTU](#use-case-1--building-a-train-control-system-with-plc-and-rtu)
+        * [Use Case 2: PLC False-Data Injection Attack Demonstration](#use-case-2--plc-false-data-injection-attack-demonstration)
+    + [Reference :](#reference--)
+      - [Problem and Solution](#problem-and-solution)
+
+
+
 ------
 
 ### Introduction
@@ -147,7 +166,19 @@ For the RTU sensor reading, the message format is `{ "timestamp" : <timesstamp v
 
 ------
 
-### Project Usage Cases
+### Project Usage 
+
+#### Library Usage Detail
+
+To use the PLC simulation library in your program, please refer to this API usage manual:
+
+- [Modbus PLC Simulator Usage Manual](Modbus_PLC_Simulator/Readme.md)
+
+To use the RTU simulation library in your program, please refer to this API usage manual:
+
+- [S7Comm RTU Simulator Usage Manual](S7Comm_RTU_Simulator/Readme.md)
+
+#### Project Usage Cases
 
 In this section we will introduce two use cases of the PLC and RTU simulators. 
 
@@ -172,8 +203,6 @@ When utilizing a real PLC, due to its high clock frequency, injecting data at th
 
 
 ------
-
-
 
 ### Reference : 
 
