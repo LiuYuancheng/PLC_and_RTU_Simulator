@@ -49,13 +49,15 @@
         data read/set request. If the input data handler is None, the server will create and keep 
         one empty databank inside.
 """
-
+import re
 import time
 from collections import OrderedDict
 
 from pyModbusTCP.client import ModbusClient
 from pyModbusTCP.server import ModbusServer, DataHandler, DataBank
 from pyModbusTCP.constants import EXP_ILLEGAL_FUNCTION
+
+IPV4_PATTERN = r'^(\d{1,3}\.){3}\d{1,3}$'
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -138,7 +140,7 @@ class plcDataHandler(DataHandler):
         """ Check whether the input IP addres is allowed to write the info."""
         if (self.allowWipList is None) or (ipaddress in self.allowWipList): return True
         return False
-
+    
 #-----------------------------------------------------------------------------
     def initServerInfo(self, serverInfo):
         """ Init the server Information.
@@ -148,6 +150,30 @@ class plcDataHandler(DataHandler):
         """
         self.serverInfo = serverInfo
 
+    def addAllowReadIp(self, ipaddress):
+        """ Add a IP address to the allow read list.
+            Args:
+                ipaddress (str): ip address string
+        """
+        if not isinstance(ipaddress, str): ipaddress = str(ipaddress)
+        if ipaddress and re.match(IPV4_PATTERN, ipaddress):
+            if not ipaddress in self.allowRipList:
+                self.allowRipList.append(ipaddress)
+            return True 
+        return False
+
+    def addAllowWriteIp(self, ipaddress):
+        """ Add a IP address to the allow write list.
+            Args:
+                ipaddress (str): ip address string
+        """
+        if not isinstance(ipaddress, str): ipaddress = str(ipaddress)
+        if ipaddress and re.match(IPV4_PATTERN, ipaddress):
+            if not ipaddress in self.allowWipList:
+                self.allowWipList.append(ipaddress)
+            return True
+        return False
+        
     def addLadderLogic(self, ladderKey, logicObj):
         """ Add a <ladderLogic> obj in the ladder logic, all the ladder logic will be executed 
             in the add in sequence. So the logic execution piority will follow the add in 
@@ -232,6 +258,12 @@ class plcDataHandler(DataHandler):
 #-----------------------------------------------------------------------------
 # define all the public functions wich can be called from other module.
     
+    def getAllowReadIpaddresses(self):
+        return self.allowRipList
+
+    def getAllowWriteIpaddresses(self):
+        return self.allowWipList
+
     def getHoldingRegState(self, address, offset):
         if self.data_bank and self.serverInfo:
             return self.data_bank.get_holding_registers(address, number=offset, srv_info=self.serverInfo)
