@@ -139,7 +139,7 @@ In summary, while both Modbus TCP and S7Comm serve similar purposes in industria
 
 The PLC simulator program is a multithreaded application consisting of four main components (the program module workflow diagram is shown below):
 
-![](doc/img/plcworkflow.png)
+![](doc/img/plcWorkflow.png)
 
 1. **Real Device/World Connector:** This component serves as a connector interface program that simulates the PLC's input contacts and output coils. It can link to virtual OT simulation programs via TCP/UDP or connect to physical OT devices via GPIO/Serial-COM. Similar to a real PLC, it reads or provides the virtual electrical signals periodically or the real electrical signals continuously.
 2. **Ladder Logic Diagram Configuration File:** This component defines the software-based ladder logic, simulating the actual ladder logic diagrams used in real PLCs. The PLC simulator program executes this ladder logic in real time when the contacts state change (In ladder logic, contacts represent input conditions or switches, while coils represent output devices or actuators), assessing the status of the PLC's contacts (whether they are normally open (NO) or normally closed (NC)) to determine true or false input conditions. Based on these logic conditions, coils are energized or de-energized as specified in the ladder logic.
