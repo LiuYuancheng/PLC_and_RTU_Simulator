@@ -1,8 +1,10 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:         M2PLC221.py
+# Name:        M221PlcCLient.py
 #
-# Purpose:     This module is used to connect to the Schneider M2xx PLC. The
+# Purpose:     This module is used to connect to the Schneider M2xx PLC to read 
+#              data from memory to get the input state of a PLC contact or write 
+#              data to a memory address then change the output state of a PLC coil.
 #              related PLC setting link(function code):
 #              https://www.schneider-electric.com/en/faqs/FA308725/
 #              https://www.schneider-electric.com/en/faqs/FA295250/
@@ -10,12 +12,31 @@
 #               
 # Author:      Yuancheng Liu
 #
-# Created:     2019/09/02
-# Copyright:   NUS Singtel Cyber Security Research & Development Laboratory
-# License:     YC @ NUS
+# Created:     2024/06/25
+# Copyright:   Copyright (c) 2024 LiuYuancheng
+# License:     MIT License
 #-----------------------------------------------------------------------------
+""" 
+    Design purpose: 
+    When we want to create a M221 PLC, we can use the Schneider SoMachine SDK to 
+    communicate with the physical PLC. This prgram is aimed to create a python 
+    module which can plug in your program to read and write data from the PLC.
+    M221 User Manual: https://pneumatykanet.pl/pub/przekierowanie/Modicon-M221-Logic-Controller-Programming-Guide-EN.pdf
+
+    M221 support normal Modbus TCP protocol, but if you don't use the soMachine SDK, 
+    your program can not read the contact "I0.X" or write the coil "Q0.X" directly.The 
+    solution is to link the contact "I0.X" or coil "Q0.X" to a memory address, then 
+    read or write the memory address to change the state of the contact or coil.As shown 
+    below:
+        [I0.x] -- |M1x| 
+        |M2x| -- (Q0.x)
+        [I0.x] -- |Lader logic| -- (Q0.x)
+"""
+
 import socket
 import platform    # For getting the operating system name
+import threading
+
 import subprocess  # For executing a shell command
 from platform import python_version
 
@@ -25,6 +46,7 @@ DECODE_MD = (float(python_version()[0:3]) < 3.6)
 
 PLC_PORT = 502  # Mode bus TCP port.
 BUFF_SZ = 1024  # TCP buffer size.
+
 # M221 PLC memory address list.
 MEM_ADDR = {'M0':   '0000',
             'M1':   '0001',
