@@ -30,6 +30,7 @@
         [I0.x] -- |M1x| 
         |M2x| -- (Q0.x)
         [I0.x] -- |Ladder Logic| -- (Q0.x)
+    Protocol type: Modbus-TCP
     Reference: 
         - M221 User Manual: https://pneumatykanet.pl/pub/przekierowanie/Modicon-M221-Logic-Controller-Programming-Guide-EN.pdf
 """
