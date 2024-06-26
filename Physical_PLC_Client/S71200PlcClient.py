@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------
 # Name:         S71200PlcClient.py
 #
-# Purpose:      This module is used to connect to the Siemens s7-1200 PLC to read 
+# Purpose:      This module is used to connect to the Siemens S7-1200 PLC to read 
 #               data from memory to get the input state of a PLC contact or write 
 #               data to a memory address then change the output state of a PLC coil.
 #               http://simplyautomationized.blogspot.com/2014/12/raspberry-pi-getting-data-from-s7-1200.html
@@ -13,8 +13,14 @@
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+"""
+    Design purpose: 
 
+    Returns:
+        _type_: _description_
+"""
 import time
+import threading
 import snap7
 import snap7.util
 from pythonping import ping
@@ -28,12 +34,46 @@ MEM_AREA_IDX = {
     'm': 0x83 
 }
 
-# Set the output type
-BOOL_TYPE = 1
-INT_TYPE = 2
-REAL_TYPE = 3
-WORD_TYPE = 4
-DWORD_TYPE = 5
+# Set the output type tag
+BOOL_TYPE   = 1
+INT_TYPE    = 2
+REAL_TYPE   = 3
+WORD_TYPE   = 4
+DWORD_TYPE  = 5
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+class S71200Reader(threading.Thread):
+
+    def __init__(self, parent, threadID, plcClient, memoryList=None, readIntv=3):
+        super().__init__(parent)
+        self.parent = parent
+        self.threadID = threadID
+        self.S71200PlcClient = plcClient
+        self.readIntv = readIntv
+        self.memoryList = memoryList
+        self.memData = {'time': time.time(), 'data': []}
+        self.terminate = False
+
+    def run(self):
+        print("M71200Reader: Start to read data from PLC [%s]" %str(self.S71200PlcClient.getPLCInfo()))
+        while not self.terminate:
+            if self.S71200PlcClient and self.S71200PlcClient.getConnectionState():
+                dataList = []
+                self.memData['time'] = time.time()
+                for mem in self.memoryList:
+                    data = self.S71200PlcClient.readMem(mem)
+                    dataList.append(data)
+                self.memData['data'] = dataList
+            else:
+                self.S71200PlcClient.reconnect()
+            time.sleep(self.readIntv)
+
+    def getLastData(self):
+        return self.memData
+
+    def stop(self):
+        self.terminate = True
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -49,8 +89,8 @@ class S71200Client(object):
             return None
         self.plcAgent = snap7.client.Client()        
         try:
-            self.plcAgent.connect(self.plcIp, 0, 1, self.port)
-            self.connected = self.plcAgent.get_connected()
+            self.plcAgent.connect(self.ip, 0, 1, self.port)
+            self.connected = True 
         except Exception as err:
             print("S71200: S71200Client init Error: %s" % err)
             return None
@@ -67,7 +107,7 @@ class S71200Client(object):
         else:
             return True
 
-    def _getMemValue(self, mbyte, valType, startMIdx, bitIndex):
+    def _memByte2Value(self, mbyte, valType, startMIdx, bitIndex):
         data = None 
         if valType == BOOL_TYPE:
             data = snap7.util.get_bool(mbyte, 0, bitIndex)
@@ -82,7 +122,6 @@ class S71200Client(object):
         else:
             print("Error: _getMemValue()> input type invlided: %s" %str(valType))
         return data
-
 
     def getPLCInfo(self):
         return {'ip': self.ip, 'port': self.port, 'connected': self.connected}
@@ -146,106 +185,94 @@ class S71200Client(object):
                 print("S7PLC1200 getMem() get data set[mem[0], start, length, bit, mbyte]:" % str(
                     memAddrTag[0].lower(), startMIdx, valLength, bitIndex, str(mbyte)))
             self.connected = True 
-            return mbyte if returnByte else self._getMemValue(mbyte, valType, bitIndex)
+            return mbyte if returnByte else self._memByte2Value(mbyte, valType, bitIndex)
         except Exception as e:
             print("Error: readMem()> %s" %str(e))
             self.connected = False
             return None
 
 #-----------------------------------------------------------------------------
-    def getMem(self, mem, returnByte=False):
-        """ Get the PLC state from related memeory address: IX0.N-input, QX0.N-output, 
-            MX0.N-memory
-        """
+    def writeMem(self, memAddrTag, val):
         if not self.connected: return None
-        out = None  # output functino selection type
-        start = 0  # start position idx
-        bit = 0
-        length = 1  # data length
-        # get the area memory address
-        memType = mem[0].lower()
-        area = self.memAreaDict[memType]
-        # Set the data lenght and start idx.
-        if(mem[1].lower() == 'x'):  # bit
-            length, out, start, bit = 1, BOOL_TYPE, int(
-                mem.split('.')[0][2:]), int(mem.split('.')[1])
-        elif(mem[1].lower() == 'b'):  # byte
-            length, out, start = 1, INT_TYPE, int(mem[2:])
-        elif(mem[1].lower() == 'w'):  # word
-            length, out, start = 2, INT_TYPE, int(mem[2:])
-        elif(mem[1].lower() == 'd'):  # double
-            length, out, start = 4, DWORD_TYPE, int(mem.split('.')[0][2:])
-        elif('freal' in mem.lower()):  # double word (real numbers)
-            length, out, start = 4, REAL_TYPE, int(mem.lower().replace('freal', ''))
-        # Read data from the PLC
-        mbyte = self.plc.read_area(area, 0, start, length)
-        if(self.debug):
-            print("S7PLC1200 getMem() get data set[mem[0], start, length, bit, mbyte]:" % str(
-                mem[0].lower(), start, length, bit, str(mbyte)))
-        # Call the utility functions from <snap7.util>
-        if(returnByte):
-            return mbyte
-        elif(out == BOOL_TYPE):
-            return get_bool(mbyte, 0, bit)
-        elif(out == INT_TYPE):
-            return get_int(mbyte, start)
-        elif(out == REAL_TYPE):
-            return get_real(mbyte, 0)
-        elif(out == DWORD_TYPE):
-            return get_dword(mbyte, 0)
-        elif(out == WORD_TYPE):
-            return get_int(mbyte, start)
+        # get the memeory data byte
+        data = self.readMem(memAddrTag, returnByte=True)
+        memType = str(memAddrTag[0]).lower()
+        if not memType in MEM_AREA_IDX.keys():
+            print("Error: writeMem()> input memory tag invlided: %s" %str(memAddrTag))
+        memoryArea = MEM_AREA_IDX[memType]
+        startMIdx = bitIndex = 0  # start position idx
+        if(memAddrTag[1].lower() == 'x'):
+            # Set bool value 
+            startMIdx =  int(memAddrTag.split('.')[0][2:])
+            bitIndex = int(memAddrTag.split('.')[1])
+            snap7.util.set_bool(data, 0, bitIndex, int(val))
+        elif(memAddrTag[1].lower() == 'b'):  # byte
+            startMIdx = int(memAddrTag[2:])
+            snap7.util.set_int(data, 0, val)
+        elif(memAddrTag[1].lower() == 'd'):
+            startMIdx = int(memAddrTag.split('.')[0][2:])
+            snap7.util.set_dword(data, 0, val)
+        elif('freal' in memAddrTag.lower()):
+            startMIdx = int(memAddrTag.lower().replace('freal', ''))
+            snap7.util.set_real(data, 0, val)
+        else: 
+            print("Error: writeMem()> input type invlided: %s" %str(memAddrTag))
+            return None 
+        try:
+            rst = self.plcAgent.write_area(memoryArea, 0, startMIdx, data)
+            self.connected = True
+            return rst 
+        except Exception as err:
+            print("PLC write error: %s " %str(err))
+            return None
 
 #-----------------------------------------------------------------------------
-    def writeMem(self, mem, value):
-        """ Set the PLC state from related memeory address: IX0.N-input, QX0.N-output, 
-            MX0.N-memory.
-        """
-        if not self.connected: return None
-        data = self.getMem(mem, True)
-        start = bit = 0  # start position idx
-        # get the area memory address
-        memType = mem[0].lower()
-        area = self.memAreaDict[memType]
-        # Set the data lenght and start idx and call the utility functions from <snap7.util>
-        if(mem[1].lower() == 'x'):  # bit
-            start, bit = int(mem.split('.')[0][2:]), int(mem.split('.')[1])
-            set_bool(data, 0, bit, int(value))
-        elif(mem[1].lower() == 'b'):  # byte
-            start = int(mem[2:])
-            set_int(data, 0, value)
-        elif(mem[1].lower() == 'd'):
-            start = int(mem.split('.')[0][2:])
-            set_dword(data, 0, value)
-        elif('freal' in mem.lower()):  # double word (real numbers)
-            start = int(mem.lower().replace('freal', ''))
-            set_real(data, 0, value)
-        # Call the write function and return the value.
-        return self.plc.write_area(area, 0, start, data)
+    def reconnect(self):
+        if self.getConnectionState(): self.disconnect()
+        try:
+            self.plcAgent.connect(self.ip, 0, 1, self.port)
+            self.connected = self.plcAgent.get_connected()
+        except Exception as err:
+            print("S71200: S71200Client init Error: %s" % err)
+            return None
 
 #-----------------------------------------------------------------------------
     def disconnect(self):
         """ Disconnect from PLC."""
-        print("S7PLC1200:    Disconnect from PLC.")
+        print("M221: Disconnect from PLC [%s]." %str(self.ip))
         self.connected = False
-        if self.plc: self.plc.disconnect()
+        if self.plcAgent: self.plcAgent.disconnect()
 
 #-----------------------------------------------------------------------------
-def testCase():
-    plc = S7PLC1200('192.168.10.73')  # ,debug=True)
-    #turn on outputs cascading
-    plc.writeMem('qx0.'+str(3), False)
-    plc.writeMem('qx0.'+str(4), False)
-    for x in range(0, 7):
-        plc.writeMem('qx0.'+str(x), True)
-        time.sleep(0.5)
-    time.sleep(1)
-    #turn off outputs
-    for x in range(0, 7):
-        plc.writeMem('qx0.'+str(x), False)
-        time.sleep(0.5)
-    plc.disconnect()
+#-----------------------------------------------------------------------------
+def testCase(mode):
+    if mode == 0:
+        plc = S71200Client('127.0.0.1', debug=True)
+        for x in range(0, 7):
+            data = plc.readMem('qx0.'+str(x))
+            print(data)
+            time.sleep(0.5)
+        plc.disconnect()
+    elif mode == 1:
+        plc = S71200Client('127.0.0.1', debug=True)
+        for x in range(0, 7):
+            data = plc.writeMem('qx0.'+str(x), 1)
+            print(data)
+            time.sleep(0.5)
+        plc.disconnect()
+    elif mode == 2:
+        plc = S71200Client('127.0.0.1', debug=True)
+        readMemList = ['qx0.1', 'qx0.2', 'mx0.3', 'mx0.4', 'ix0.5', 'ix0.6']
+        plcReader = S71200Reader(None, 1, plc, memoryList=readMemList)
+        plcReader.start()
+        time.sleep(3)
+        print(plcReader.getLastData())
+        time.sleep(1)
+        plcReader.stop()
+    else:
+        pass
 
 #-----------------------------------------------------------------------------
 if __name__ == '__main__':
-    testCase()
+    testmode = int(input("Please enter the test mode [0-2]: "))
+    testCase(testmode)

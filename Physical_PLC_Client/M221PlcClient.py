@@ -97,7 +97,7 @@ class M221Reader(threading.Thread):
                 dataList = []
                 self.memData['time'] = time.time()
                 for mem, bitNum in self.memoryList:
-                    data = self.M221PlcClient.readMemory(mem, bitNum=bitNum)
+                    data = self.M221PlcClient.readMem(mem, bitNum=bitNum)
                     dataList.append(data)
                 self.memData['data'] = dataList
             else:
@@ -256,12 +256,15 @@ def testCase(mode):
         readMemList = [('M1', 8), ('M11', 8)]
         plcReader = M221Reader(None, 1, plc, memoryList=readMemList)
         plcReader.start()
-        time.sleep(1)
+        time.sleep(3)
         print(plcReader.getLastData())
+        time.sleep(1)
+        plcReader.stop()
     else:
         # Add more test case here and use <mode> flag to select.
         pass
 
 #-----------------------------------------------------------------------------
 if __name__ == '__main__':
-    testCase(2)
+    testmode = int(input("Please enter the test mode [0-2]: "))
+    testCase(testmode)
