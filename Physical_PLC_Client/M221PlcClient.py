@@ -2,13 +2,14 @@
 #-----------------------------------------------------------------------------
 # Name:        M221PlcCLient.py
 #
-# Purpose:     This module is used to connect to the Schneider M2xx type PLC to read 
-#              data from memory to get the input state of a PLC contact or write 
-#              data to a memory address then change the output state of a PLC coil.
-#              related PLC setting link(function code):
-#              https://www.schneider-electric.com/en/faqs/FA308725/
-#              https://www.schneider-electric.com/en/faqs/FA295250/
-#              https://www.schneider-electric.com/en/faqs/FA249614/
+# Purpose:     This module is used to connect to the Schneider M22x type PLC 
+#              (physical device to read bits data from memory to get the input 
+#              state of a PLC contact or write bit data in a memory address to
+#              change the output state of a PLC coil. The related PLC setting 
+#              link(function code):
+#              1. https://www.schneider-electric.com/en/faqs/FA308725/
+#              2. https://www.schneider-electric.com/en/faqs/FA295250/
+#              3. https://www.schneider-electric.com/en/faqs/FA249614/
 #               
 # Author:      Yuancheng Liu
 #
@@ -17,23 +18,26 @@
 # License:     MIT License
 #-----------------------------------------------------------------------------
 """ 
-    Design purpose: 
-    When we want to connect to a M221 PLC, we can use the Schneider SoMachine SDK to 
-    communicate with the physical PLC. This prgram is aimed to create a python 
-    module which can plug in your program to read and write data from the PLC.
+    Design purpose:
+    To connect to an M221 PLC, we can use the Schneider SoMachine SDK to communicate 
+    with the physical PLC. This python lib module aims to create a Python module that 
+    can be integrated into your application to read and write data from the PLC.
+        
+    M221 supports normal Modbus TCP protocol communication, but if you don't use the 
+    soMachine SDK, your program can not read the contact "I0.X" or write the coil "Q0.X" 
+    directly.The solution is to link the contact "I0.X" or coil "Q0.X" to a PLC memory 
+    address, then read or write the memory address to get the contact input or set the 
+    coil output. The ladder logic can be draft as shown below:
+        [ I0.x ] --> | M1.x | 
+        | M1.x | --> | Your Ladder Logic | --> | M2.x |
+        | M2.x | --> ( Q0.x )
     
-    M221 support normal Modbus TCP protocol, but if you don't use the soMachine SDK, 
-    your program can not read the contact "I0.X" or write the coil "Q0.X" directly.The 
-    solution is to link the contact "I0.X" or coil "Q0.X" to a memory address, then 
-    read or write the memory address to get or set the state of the contact or coil.
-    As shown below:
-        [I0.x] -- |M1x| 
-        |M2x| -- (Q0.x)
-        [I0.x] -- |Ladder Logic| -- (Q0.x)
     Protocol type: Modbus-TCP
+    
     Reference: 
         - M221 User Manual: https://pneumatykanet.pl/pub/przekierowanie/Modicon-M221-Logic-Controller-Programming-Guide-EN.pdf
 """
+
 import time
 import socket
 import threading
@@ -45,7 +49,7 @@ from pythonping import ping
 # PLC response data, eles use bytes.hex() decode.
 DECODE_MD = (float(python_version()[0:3]) < 3.6)
 
-PLC_PORT = 502  # Mode bus TCP port.
+PLC_PORT = 502  # Mode bus default TCP port.
 BUFF_SZ = 1024  # TCP buffer size.
 
 # M221 PLC memory address tag example list.
@@ -65,7 +69,7 @@ MEM_ADDR_TAG = {
     'M60':  '003c'
     }
 
-# All the M221 Module bus constants
+# All the M221 Module bus constants we need: 
 TID = '0000'            # Transaction Identifier (2bytes)
 PROTOCOL_ID = '0000'    # Protocol Identifier (2bytes)
 UID = '01'              # Unit Identifier (1byte)
@@ -75,12 +79,25 @@ W_LENGTH = '0008'       # write byte command unit lengh field
 R_LENGTH = '0006'       # read byte command unit length field
 M_FC = '0f'             # memory access function code (write) mutiple bit
 M_RD = '01'             # memory state fetch internal mupltiple bits %M
-VALUES = {'0': '00', '1': '01'}
+VALUES = {'0': '00', '1': '01'} # state to hex number
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class M221Reader(threading.Thread):
+    """ A thread based PLC reader to read the PLC state regualarly based on the 
+        user configured memeory list and read interval.
+    """
     def __init__(self, parent, threadID, plcClient, memoryList=None, readIntv=3):
+        """ Init Example: 
+            plcReader = M221Reader(None, 1, M221Client('192.168.10.72', debug=True), 
+                                    memoryList=[('M20',4), ('M19',8)])
+            Args:
+                parent (ref): parent obj ref.
+                threadID (int): Thread ID. 
+                plcClient (ref): a <M221Client> obj ref.
+                memoryList (list(str), optional): memory tag list. Defaults to None.
+                readIntv (int, optional): read time interval (sec). Defaults to 3.
+        """
         super().__init__(parent)
         self.parent = parent
         self.threadID = threadID
@@ -90,6 +107,7 @@ class M221Reader(threading.Thread):
         self.memData = {'time': time.time(), 'data': []}
         self.terminate = False
 
+    #-----------------------------------------------------------------------------
     def run(self):
         print("M221Reader: Start to read data from PLC [%s]" %str(self.M221PlcClient.getPLCInfo()))
         while not self.terminate:
@@ -103,24 +121,30 @@ class M221Reader(threading.Thread):
             else:
                 self.M221PlcClient.reconnect()
             time.sleep(self.readIntv)
+        print("M221Reader: Stop reading data from PLC [%s]" %str(self.M221PlcClient.getPLCInfo()))
+        self.M221PlcClient.disconnect()
     
+    #-----------------------------------------------------------------------------
     def getLastData(self):
         return self.memData
 
     def stop(self):
         self.terminate = True
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class M221Client(object):
+    """ Client to connect to the M221 PLC to read the memeory data"""
     def __init__(self, plcIp, plcPort=PLC_PORT, pingPlc=True, debug=False):
-        """ Init the PLC connection client: 
+        """ Init Example: client = M221Client('127.0.0.1', debug=True)
             Args:
-                plcIp (_type_): _description_
-                plcPort (_type_, optional): _description_. Defaults to PLC_PORT.
-                pingPlc (bool, optional): _description_. Defaults to True.
-                debug (bool, optional): _description_. Defaults to False.
+                plcIp (str): PLC IP address.
+                plcPort (int, optional): PLC port. Defaults to PLC_PORT.
+                pingPlc (bool, optional): flg to identify whether ping PLC before
+                    establish connection. Defaults to True.
+                debug (bool, optional): debug print flag. Defaults to False.
             Returns:
-                _type_: _description_
+                Ref: return None if connection failed.
         """
         self.ip = plcIp
         self.port = plcPort
@@ -129,17 +153,16 @@ class M221Client(object):
         self.connectLockFlg = False
         # Check whether the PLC is reachable
         if pingPlc and not self._pingPLC(self.ip): 
-            print("The PLC [%s] is not reachable. Please check the connection." % self.ip)
+            print("Warning: The PLC [%s] is not reachable. Please check the connection." % self.ip)
             return None
-        
         # Init the PLC connection paramters.
         self.plcAgent = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.plcAgent.connect((self.ip, self.port))
-            if self.debug: print("M221: Connected to the PLC [%s]" % self.ip)
+            if self.debug: print("M221Client: Connected to the PLC [%s]" % self.ip)
             self.connected = True
         except Exception as error:
-            print("M221: Can not access to the PLC [%s]" % str(self.plcAgent))
+            print("M221Client: Can not access to the PLC [%s]" % str(self.plcAgent))
             print(error)
 
 #-----------------------------------------------------------------------------
@@ -149,18 +172,19 @@ class M221Client(object):
         """
         data = ping(host, timeout=2, verbose=False)
         if data.rtt_avg_ms >= 1000:
-            print("M221: PLC [%s] is not responding." % host)
+            # PLC more than 1000ms response, time out.
+            print("M221Client: PLC [%s] is not responding." % host)
             return False
-        else:
-            return True
+        return True
 
 #-----------------------------------------------------------------------------
+# Define all the get() methods for the M221 PLC.
     def _getPlCRespStr(self, modbusMsg):
-        """ Convert the sendStr to hex byte and send to PLC. Wait for PLC's 
-            response and convert the response hex bytes to string.
+        """ Convert the modbus mesasge string to hex byte and send to PLC, wait for 
+            PLC's response and convert the response hex bytes to string.
         """
         if not (self.connected and modbusMsg): return ''  # check whether the input is empty.
-        if self.debug: print('M221 send: %s' % modbusMsg)
+        if self.debug: print('M221Client send: %s' % modbusMsg)
         bdata = bytes.fromhex(modbusMsg)
         try:
             self.plcAgent.send(bdata)
@@ -182,7 +206,7 @@ class M221Client(object):
 
 #-----------------------------------------------------------------------------
     def readMem(self, memAddrTag, bitNum=8):
-        """ Fetch the current plc memory state with a bit lengh 
+        """ Fetch the current plc memory state with a bit lengh. 
             Args:
                 memAddrTag (str): M221 memory tag such as "M60"
                 bitNum (int, optional): number of bit to read from the memory address. Defaults to 8.
@@ -208,7 +232,8 @@ class M221Client(object):
             memoryDecimal = int(memAddrTag[1:])
             memoryHex = hex(memoryDecimal)[2:]
             byteVal = VALUES[val]
-            modbusMsg = ''.join((TID, PROTOCOL_ID, W_LENGTH, UID, M_FC, memoryHex, BIT_COUNT, BYTE_COUNT, byteVal))
+            modbusMsg = ''.join((TID, PROTOCOL_ID, W_LENGTH, UID, M_FC, memoryHex, 
+                                 BIT_COUNT, BYTE_COUNT, byteVal))
             response = self._getPlCRespStr(modbusMsg)
             return response
         else:
@@ -217,14 +242,14 @@ class M221Client(object):
 
 #-----------------------------------------------------------------------------
     def reconnect(self):
-        """ reconnect to the PLC and set the PLC connection flag."""
+        """ Reconnect to the PLC and set the PLC connection flag."""
         if self.getConnectionState(): self.disconnect()
         try:
             self.plcAgent.connect((self.ip, self.port))
-            if self.debug: print("M221: Connected to the PLC [%s]" % self.ip)
+            if self.debug: print("M221Client: Connected to the PLC [%s]" % self.ip)
             self.connected = True
         except Exception as error:
-            print("M221: Can not access to the PLC [%s]" % str(self.plcAgent))
+            print("M221Client: Can not access to the PLC [%s]" % str(self.plcAgent))
             print(error)
             self.connected = False
         return self.connected
@@ -236,29 +261,32 @@ class M221Client(object):
         self.connected = False
         if self.plcAgent: self.plcAgent.close()
 
-
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 def testCase(mode):
     """ Module testCase function."""
     if mode == 0:
+        print("Test case 1: local connection test.")
         plc = M221Client('127.0.0.1', debug=True)
         plc.readMem('M10', bitNum=8)
         plc.writeMem('M10', 0)
         plc.disconnect()
     elif mode == 1:
+        print("Test case 2: remote connection test.")
         plc = M221Client('192.168.10.72', debug=True)
         plc.readMem('M10', bitNum=8)
         plc.writeMem('M10', 0)
         plc.disconnect()
     elif mode == 2:
+        print("Test case 3: remote connection test with reader thread.")
         plc = M221Client('192.168.10.72', debug=True)
         readMemList = [('M1', 8), ('M11', 8)]
         plcReader = M221Reader(None, 1, plc, memoryList=readMemList)
         plcReader.start()
         time.sleep(3)
         print(plcReader.getLastData())
-        time.sleep(1)
+        time.sleep(3)
+        print(plcReader.getLastData())
         plcReader.stop()
     else:
         # Add more test case here and use <mode> flag to select.
