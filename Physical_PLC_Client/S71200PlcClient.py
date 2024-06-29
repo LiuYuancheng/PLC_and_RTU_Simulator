@@ -19,9 +19,9 @@
     with the physical PLC. This python lib module aims to create a Python module that 
     can be integrated into your application to read and write data from the PLC.
     
-    S7-1200 support mapping memory area directly to read and write data on PLC constact, 
+    S7-1200 support mapping memory area directly to read and write data on PLC contact, 
     memory and coils. We use the snap7 library to communicate with the PLC via Siemens
-    S7Comm protocal. The PLC ladder logic can be configure directly as: 
+    S7Comm protocol. The PLC ladder logic can be configure directly as: 
         | ix.x/mx.x | --> | Your Ladder Logic | --> | qx.x/mx.x |
 
     Protocol type: S7Comm

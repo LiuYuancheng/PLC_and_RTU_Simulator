@@ -78,8 +78,8 @@ BIT_COUNT = '0001'      #
 BYTE_COUNT = '01'       # 
 W_LENGTH = '0008'       # write byte command unit lengh field  
 R_LENGTH = '0006'       # read byte command unit length field
-M_FC = '0f'             # memory access function code (write) mutiple bit
-M_RD = '01'             # memory state fetch internal mupltiple bits %M
+M_FC = '0f'             # memory access function code (write) multiple bit
+M_RD = '01'             # memory state fetch internal multiple bits %M
 VALUES = {'0': '00', '1': '01'} # state to hex number
 
 #-----------------------------------------------------------------------------
