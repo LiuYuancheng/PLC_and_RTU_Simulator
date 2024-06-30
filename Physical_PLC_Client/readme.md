@@ -1,9 +1,11 @@
-# Physical PLC Communication Clients
+# Python Physical PLC Communication Clients
 
-**Project Design Purpose**: The main objective of this project is to develop a Python library capable of communicate with two different widely used PLC : Schneider M221 PLC and Siemens S7-1200 to read and write the PLC memory data. We will develop 2 different clients to talk to the PLCs with different protocol and provide the multi-threading wrapper class so people can integrate the client in their program's main thread or making running parallel to fetch the PLC state regularly.  
+**Project Design Purpose**: The main objective of this project is to develop a Python library capable of communicate with two different widely used PLC : Schneider M221 PLC and Siemens S7-1200 to read and write the PLC memory data. We have developed two distinct clients, each tailored to the specific protocols of these PLCs. Additionally, we will provide a multithreading wrapper class, enabling integration of the clients into your program's main thread or running them in parallel to regularly fetch the PLC state. The system overview is shown below:
+
+![](img/title.png)
 
 ```
-# Created:     2024/06/25
+# Created:     2024/06/29
 # Version:     v0.1.3
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
@@ -17,10 +19,10 @@
 
 ### Introduction
 
-The project will provide two different python PLC communication clients use to connect to two different kind of physical PLC (Schneider Modicon M221 or Siemens  SIMATIC S7-1200) via Modbus-TCP or S7Comm protocol. The client will provide the API to read and write the bytes data from memory address in the PLC ladder logic then fetch the state of the PLC input contact and change the PLC output coils state. Two libraries are included in:
+This project provides two different Python PLC communication clients to connect with two types of physical PLCs: the Schneider Modicon M221 and the Siemens SIMATIC S7-1200. The clients use the Modbus-TCP and S7Comm protocols, respectively. These clients offer APIs to read and write byte data from memory addresses in the PLC ladder logic, fetch the state of PLC input contacts, and change the state of PLC output coils. The project includes two libraries:
 
-- **M221PlcCLient Module** : Client module used to communicate Schneider Modicon M221 via Modbus-TCP, it provide the memory `% MXX` address tag byte data read and write API function and the multi-threading client wrapper for integration. 
--  **S71200PlcClient Module** : Client module used to communicate Siemens  SIMATIC S7-1200 via S7Comm, it provide the contact `% i_.x`, memory `% m_.x` and coil `% q_.x` data (bool, int, world, float) read and write API function and the multi-threading client wrapper for integration. 
+- **M221PlcCLient Module** : This module communicates with the Schneider Modicon M221 via Modbus-TCP. It provides API functions to read and write byte data from memory `%MXX` address tags and includes a multithreading client wrapper for easy integration.
+-  **S71200PlcClient Module** : This module communicates with the Siemens SIMATIC S7-1200 via S7Comm. It offers API functions to read and write data (bool, int, word, float) from contacts `%I_.x`, memory `%M_.x`, and coils `%Q_.x`. It also includes a multithreading client wrapper for seamless integration.
 
 
 
@@ -28,7 +30,5 @@ The project will provide two different python PLC communication clients use to c
 
 ### Program Design
 
-
-
-How to use Python Program to Communicate with Schneider M221 PLC or Siemens S7-1200 PLC
+For the program design, please refer to this document: https://github.com/LiuYuancheng/IT_OT_IoT_Cyber_Security_Workshop/blob/main/OT_System_Attack_Case_Study/PLC_Doc/Python_PLC_Communication.md
 
