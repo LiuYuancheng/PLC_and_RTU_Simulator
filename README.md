@@ -16,6 +16,8 @@ The system overview is shown below :
 
 ![](doc/img/system.png)
 
+We also provide the physical PLC communication module if you need to create a python program to connect to a real  Schneider M221PLC or  Siemens Simatic S7-1200 PLC.
+
 ```
 # version:     v0.1.3
 # Created:     2024/02/21
@@ -177,6 +179,10 @@ To use the PLC simulation library in your program, please refer to this API usag
 To use the RTU simulation library in your program, please refer to this API usage manual:
 
 - [S7Comm RTU Simulator Usage Manual](S7Comm_RTU_Simulator/Readme.md)
+
+To use the physical PLC client library in your program, please refer to this document:
+
+- [Physical PLC Communication Client Usage Manual](Physical_PLC_Client/readme.md) 
 
 #### Project Usage Cases
 
