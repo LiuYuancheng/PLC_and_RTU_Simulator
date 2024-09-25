@@ -219,7 +219,7 @@ When utilizing a real PLC, due to its high clock frequency, injecting data at th
 
 ------
 
-#### Problem and Solution
+### Problem and Solution
 
 Refer to `doc/ProblemAndSolution.md`
 
