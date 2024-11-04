@@ -37,7 +37,7 @@ import Log  # the module need to work with the lib Log module
 import udpCom
 import modbusTcpCom
 
-RECON_INT = 30 # reconnection time interval default set 30 sec
+RECON_INT = 15 # reconnection time interval default set 30 sec
 DEF_RW_PORT = 3001  # default realworld UDP connection port
 DEF_MB_PORT = 502   # default modbus port.
 
@@ -80,13 +80,35 @@ class RealWorldConnector(object):
 #-----------------------------------------------------------------------------
     def _loginRealWord(self, plcID=None):
         """ Try to connect to the realworld emulator with the plc ID."""
-        Log.info("Try to connnect to the realword [%s]..." %str(self.address))
+        Log.info("Try to connect to the realword [%s]..." % str(self.address))
         rqstKey, rqstType, rqstDict = 'GET', 'login', {'plcID': plcID}
         result = self._queryToRW(rqstKey, rqstType, rqstDict)
         if result:
             Log.info("Realworld emulator online, state: ready")
             return True
-        return False
+        if result is None: 
+            Log.warning("Realworld emulator did not response login request.")
+            return False
+        elif result and len(result) == 3:
+            k, t, val = result
+            if k == 'REP' and t == 'login':
+                try:
+                    if 'state' in val.keys() and val['state'] == 'ready':
+                        print("Reconnection finished.")
+                        Log.info("Realworld emulator online, state: ready")
+                        return True 
+                    else:
+                        Log.warning("Realworld emulator respose not ready")
+                        return False
+                except:
+                    Log.warning("Realworld emulator respose not valid: %s" %str(val))
+                    return False
+            else:
+                Log.warning("Realworld emulator respose parameter missing: %s" %str(result))
+                return False
+        else:
+            Log.warning("Realworld emulator respose format not valid: %s , ingore the message." %str(result))
+            return False
 
     def isRealWorldOnline(self):
         return self.realworldOnline
@@ -95,9 +117,11 @@ class RealWorldConnector(object):
     def reConnectRW(self):
         """ Try to reconnect to the real world emulator."""
         if self.recoonectCount <= 0:
-            Log.info('Try to reconnect to the realword.')
+            Log.info('Try to reconnect to the realworld.')
             self.realworldOnline = self._loginRealWord(plcID=self.plcID)
             self.recoonectCount = RECON_INT
+            return
+        print("Reconnect to the realworld in %s sec" %str(self.recoonectCount))
         self.recoonectCount -= 1
 
 #-----------------------------------------------------------------------------
@@ -336,7 +360,7 @@ class plcSimuInterface(object):
                 time.sleep(0.6)
             else:
                 self.rwConnector.reConnectRW()
-                time.sleep(2)
+                time.sleep(1)
         time.sleep(self.updateInt)
 
 #-----------------------------------------------------------------------------
