@@ -11,15 +11,15 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2024/03/21
-# Version:     v_0.1.3
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
 """ Program Design:
 
-    We want to create a Siemens S7comm communication channel (client + server) lib
-    to read the data from a real PLC/RTU or simulate the PLC/RTU S7comm data handling 
-    process (handle S7commm request from other program).
+    We want to create a Siemens S7Comm communication channel (client + server) lib
+    to read the data from a real PLC/RTU or simulate the PLC/RTU S7Comm data handling 
+    process (handle S7Comm request from other program).
 
     Three components will be provided in this module:
     
@@ -29,7 +29,7 @@
         for example speed value save on memory Idx=0, dataIdx=0 and check whether the val more 
         than the threshold then write the result to memory Idx=0 dataIdx=2:
         1. Overwrite the initLadderInfo() to set the src and dest address info.
-        2. Overwrite the runLadderLogic() to do the value check and memory udpate.
+        2. Overwrite the runLadderLogic() to do the value check and memory update.
         3. Use or pass the ladder logic object in a handlerS7request() function.
 
     - S7CommClient: S7Comm client module to read src memory val or write target val 
@@ -86,7 +86,7 @@ class rtuLadderLogic(object):
         self.initLadderInfo()
 
     def initLadderInfo(self):
-        """ Init thesrc and dest address information, this function will 
+        """ Init the src and dest address information, this function will 
             be called during the logic init. Please over write this function.
         """
         pass
@@ -150,7 +150,7 @@ class s7CommClient(object):
                 dataTypeList (list(XX_TYPE), optional): data type list. Defaults to None.
 
             Returns:
-                list(data): return the byte orignal data if the input dataIdxList is None 
+                list(data): return the byte original data if the input dataIdxList is None 
                     else a list of the data. 
         """
         data = None 
@@ -161,7 +161,7 @@ class s7CommClient(object):
             print("Error: readAddressVal()> read RTU data error: %s" %str(err))
             self.connected = False
             return None
-        # return the byte orignal data if the input dataIdxList is None 
+        # return the byte original data if the input dataIdxList is None 
         if dataIdxList is None or dataTypeList is None:
             return data
         dataList = [parseS7bytes(data, dataIdx, dataType)
@@ -186,7 +186,6 @@ class s7CommClient(object):
             snap7.util.set_int(command, 0, int(data))
         else:
             snap7.util.set_real(command, 0, float(data))
-
         try: 
             rst = self.client.db_write(addressIdx, dataIdx, command)
             self.connected = True
@@ -215,7 +214,7 @@ class s7commServer(object):
             Args:
                 hostIp (str, optional): service host. Defaults to '0.0.0.0'.
                 hostPort (int, optional): service port. Defaults to 102.
-                snapLibPath (_type_, optional): libflie 'snap7.dll' path for Win-OS if 
+                snapLibPath (_type_, optional): lib file 'snap7.dll' path for Win-OS if 
                     the system path is not set. Defaults to None use system path.
         """ 
         self._hostIp = hostIp
@@ -226,8 +225,8 @@ class s7commServer(object):
         # self._dbDict = {
         #     '1': {    # address index as the key.
         #         'dbData':(ctypes.c_ubyte*8)(), # 8 byte data
-        #         'dataIdx':[0, 2, 4], # paramter start index of bytes.
-        #         'dataType':[BOOL_TYPE, INT_TYPE, REAL_TYPE], # paramter type
+        #         'dataIdx':[0, 2, 4], # parameter start index of bytes.
+        #         'dataType':[BOOL_TYPE, INT_TYPE, REAL_TYPE], # parameter type
         #     }
         # }
         self.runingFlg = False

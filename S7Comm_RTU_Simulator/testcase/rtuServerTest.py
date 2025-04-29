@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------
 # Name:        rtuServerTest.py
 #
-# Purpose:     This modulde is a test case program of lib module <snap7Comm.py>
+# Purpose:     This module is a test case program of lib module <snap7Comm.py>
 #              to start a S7comm server to simulate a PLC or RTU to handle the 
 #              memory read/set request.
 #
@@ -15,7 +15,7 @@
 #-----------------------------------------------------------------------------
 """
     Remark: this program need to run under 64-bit python, use workon to active the 
-            vitual env: workon vEnv3.8 then run the program.
+            virtual env: workon vEnv3.8 then run the program.
 
 """
 

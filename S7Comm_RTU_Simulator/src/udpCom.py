@@ -8,7 +8,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2019/01/15
-# Version:     v_0.2
+# Version:     v_1.2
 # Copyright:   Copyright (c) 2019 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -18,7 +18,7 @@
     UDP,  two classes will be provide in this module : 
 
     - client: send UDP msg/chunk to the destination and get the response (optional). 
-    - server: allow the user to pass in their message hanlder in the server, if the handler
+    - server: allow the user to pass in their message handler in the server, if the handler
             function return value, the value will be send back to the client side.
 
     If the message/data size is bigger than the MAX/pre-configured UDP socket buffer 
@@ -26,7 +26,7 @@
     Then the chunk will be send to destination under splitted sequence. The data transfer 
     will follow below steps:
         1. Send b'BM;Send;<messageSize>' to the server side.
-        2. Send every thrunk in a loop.
+        2. Send every chunks in a loop.
         3. Send b'BM;Sent;Finish' to identify finished and trigger the response.
     The server's reply Big message will follow step 1 & 2.
 
@@ -65,7 +65,7 @@ class udpClient(object):
 
 #--udpClient-------------------------------------------------------------------
     def receiveChunk(self, messageSZ):
-        """ recieve the chunks based on the data type
+        """ Receive the chunks based on the data type
             Args:
                 messageSZ (int): the whole message size
             Returns:
@@ -103,7 +103,7 @@ class udpClient(object):
             except Exception as error:
                 print("udpClient;sendMsg(): Can not connect to the server!")
                 print(error)
-                # self.disconnect() no need to diconnect if we want to do reconnect.
+                # self.disconnect() no need to disconnect if we want to do reconnect.
                 return None
         return None
 
@@ -152,8 +152,8 @@ class udpClient(object):
     def disconnect(self):
         """ Send a empty logout message and close the socket."""
         self.sendMsg('', resp=False)
-        time.sleep(RESP_TIME) # sleep very short while before close the socket to \
-        # make sure the server have enought time to handle the close method, when \
+        time.sleep(RESP_TIME) # sleep very short while before close the socket to
+        # make sure the server have enough time to handle the close method, when
         # server computer is fast, this is not a problem.
 
         # Call shut down before close: https://docs.python.org/3/library/socket.html#socket.socket.shutdown
@@ -177,7 +177,7 @@ class udpServer(object):
 
 #--udpServer-------------------------------------------------------------------
     def receiveChunk(self, messageSZ):
-        """ recieve the chunks based on the data type
+        """ Receive the chunks based on the data type.
             Args:
                 messageSZ (int): the whole message size
             Returns:
@@ -196,7 +196,7 @@ class udpServer(object):
 
 #--udpServer-------------------------------------------------------------------
     def serverStart(self, handler=None):
-        """ Start the UDP server to handle the incomming message."""
+        """ Start the UDP server to handle the incoming message."""
         while not self.terminate:
             data, address = self.server.recvfrom(self.bufferSize)
             # Check whether the message is a big message
@@ -256,7 +256,7 @@ def msgHandler(msg):
     """ The test handler method passed into the UDP server to handle the 
         incoming messages.
     """
-    print("Incomming message: %s" % str(msg))
+    print("Incoming message: %s" % str(msg))
     return msg
 
 def main():
@@ -267,7 +267,7 @@ def main():
         print(" - Please input the UDP port: ")
         udpPort = int(str(input()))
         server = udpServer(None, udpPort)
-        print("Start the UDP echo server licening port [%s]" % udpPort)
+        print("Start the UDP echo server listening port [%s]" % udpPort)
         server.serverStart(handler=msgHandler)
     elif uInput == '2':
         print(" - Please input the IP address: ")

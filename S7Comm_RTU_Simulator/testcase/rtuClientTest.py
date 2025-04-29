@@ -2,14 +2,14 @@
 #-----------------------------------------------------------------------------
 # Name:        rtuClientTest.py
 #
-# Purpose:     This modulde is a test case program of lib module <snap7Comm.py> 
+# Purpose:     This module is a test case program of lib module <snap7Comm.py> 
 #              to start a S7comm client connecting to the <rtuServerTest.py> to 
 #              test set and read the data from S7comm (rtu/plc) server.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2024/03/41
-# Version:     v_0.1.3
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ except ImportError as err:
 print("- pass")
 
 #-----------------------------------------------------------------------------
-# Import dll file for windos platfrom.
+# Import dll file for windows platform.
 libpath = os.path.join(gLibDir, 'snap7.dll')
 print("Import snap7 dll path: %s" % str(libpath))
 if os.path.exists(libpath):

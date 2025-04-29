@@ -152,7 +152,7 @@ class RealWorldConnector(object):
             Args:
                 rqstKey (str): request key (GET/POST/REP)
                 rqstType (str): request type string.
-                rqstDict (doct): request detail dictionary.
+                rqstDict (dict): request detail dictionary.
                 dataOnly (bool, optional): flag to identify whether only return the 
                     data. Defaults to True. return (responseKey, responseType, responseJson) if set
                     to False.

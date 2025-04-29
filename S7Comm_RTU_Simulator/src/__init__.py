@@ -7,7 +7,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2024/01/15
-# Version:     v_0.1.2
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License   
 #-----------------------------------------------------------------------------
@@ -20,7 +20,7 @@ Name: lib
 Description:
 - provide the module used as lib to import in the application modules.
 
-Modules inclided in the current package: 
+Modules included in the current package: 
 
 1. snap7Comm.py: 
 - provide client and server API to handle the S7comm communication.

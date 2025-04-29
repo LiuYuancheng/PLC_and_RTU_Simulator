@@ -27,7 +27,7 @@
     Protocol type: S7Comm
         
     Returns:
-        1. This lib follow the deisgn in this artile: 
+        1. This lib follow the design in this article: 
             http://simplyautomationized.blogspot.com/2014/12/raspberry-pi-getting-data-from-s7-1200.html
         2. Python snap7 lib: https://pypi.org/project/python-snap7/
 """
@@ -40,7 +40,7 @@ from pythonping import ping
 
 # PLC port
 PLC_PORT = 102
-# default memeory start Index on S7-1200
+# default memory start Index on S7-1200
 MEM_AREA_IDX = {
     'i': 0x81,
     'q': 0x82, 
@@ -57,8 +57,8 @@ DWORD_TYPE  = 5
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class S71200Reader(threading.Thread):
-    """ A thread based PLC reader to read the PLC state regualarly based on the 
-        user configured memeory list and read interval.
+    """ A thread based PLC reader to read the PLC state regularly based on the 
+        user configured memory list and read interval.
     """
     def __init__(self, parent, threadID, plcClient, memoryList=None, readIntv=3):
         """ Init Example: 
@@ -105,7 +105,7 @@ class S71200Reader(threading.Thread):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class S71200Client(object):
-    """ Client to connect to the M221 PLC to read the memeory data"""
+    """ Client to connect to the M221 PLC to read the memory data"""
     def __init__(self, plcIp, plcPort=PLC_PORT, pingPlc=True, debug=False):
         """ Init Example: client = S71200Client('127.0.0.1', debug=True)
             Args:
@@ -148,12 +148,12 @@ class S71200Client(object):
 
     #-----------------------------------------------------------------------------
     def _memByte2Value(self, mbyte, valType, startMIdx, bitIndex):
-        """ Convert the memeory byte to the value of the specified type.
+        """ Convert the memory byte to the value of the specified type.
             Args:
                 mbyte (bytes): data bytes. 
                 valType (int): convert value's data type.
-                startMIdx (int): start index of the memeory byte.
-                bitIndex (_type_): start index of the memeory bit.
+                startMIdx (int): start index of the memory byte.
+                bitIndex (_type_): start index of the memory bit.
             Returns:
                 _type_: _description_
         """
@@ -169,7 +169,7 @@ class S71200Client(object):
         elif valType == DWORD_TYPE:
             data = snap7.util.get_dword(mbyte, 0)
         else:
-            print("Error: _getMemValue()> input type invlided: %s" % str(valType))
+            print("Error: _getMemValue()> input type invalid: %s" % str(valType))
         return data
 
 #-----------------------------------------------------------------------------
@@ -183,7 +183,7 @@ class S71200Client(object):
 
 #-----------------------------------------------------------------------------
     def readMem(self, memAddrTag, returnByte=False):
-        """ Fetch the current PLC state from related memeory address: IX0.N-input contact, 
+        """ Fetch the current PLC state from related memory address: IX0.N-input contact, 
             QX0.N-output coil, MX0.N-memory address tag
 
             Args:
@@ -196,11 +196,11 @@ class S71200Client(object):
         if not self.connected: return None
         memType = str(memAddrTag[0]).lower()
         if not memType in MEM_AREA_IDX.keys():
-            print("Error: readMem()> input memory tag invlided: %s" %str(memAddrTag))
-        valLength = 1   # value byte lenght
-        valType = None  # value tyep
-        bitIndex = 0    # start index of the memeory byte.
-        startMIdx = 0   # start index of the memeory bit.
+            print("Error: readMem()> input memory tag invalid: %s" %str(memAddrTag))
+        valLength = 1   # value byte length
+        valType = None  # value type
+        bitIndex = 0    # start index of the memory byte.
+        startMIdx = 0   # start index of the memory bit.
         if(memAddrTag[1].lower() == 'x'):
             # Config the bool type data tag 
             valLength = 1
@@ -208,7 +208,7 @@ class S71200Client(object):
             startMIdx = int(memAddrTag.split('.')[0][2:])
             bitIndex = int(memAddrTag.split('.')[1])
         elif(memAddrTag[1].lower() == 'b'):
-            # Config the bype or integer type data tag
+            # Config the byte or integer type data tag
             valLength = 1
             valType = INT_TYPE
             startMIdx = int(memAddrTag[2:])
@@ -226,7 +226,7 @@ class S71200Client(object):
             valType = REAL_TYPE
             startMIdx = int(memAddrTag.lower().replace('freal', ''))
         else:
-            print("Error: readMem()> input memory tag invlided: %s" %str(memAddrTag))
+            print("Error: readMem()> input memory tag invalid: %s" %str(memAddrTag))
             return None
         # Init the memory start area.
         memoryArea = MEM_AREA_IDX[memType]
@@ -244,18 +244,18 @@ class S71200Client(object):
 
 #-----------------------------------------------------------------------------
     def writeMem(self, memAddrTag, val):
-        """ Write a value to the related memeory address: IX0.N-input contact, 
+        """ Write a value to the related memory address: IX0.N-input contact, 
             QX0.N-output coil, MX0.N-memory address tag
             Args:
                 memAddrTag (_type_): S71200 memory tag such as "qx0.6"
                 val (_type_): _description_
         """
         if not self.connected: return None
-        # get the memeory data byte
+        # get the memory data byte
         data = self.readMem(memAddrTag, returnByte=True)
         memType = str(memAddrTag[0]).lower()
         if not memType in MEM_AREA_IDX.keys():
-            print("Error: writeMem()> input memory tag invlided: %s" %str(memAddrTag))
+            print("Error: writeMem()> input memory tag invalid: %s" %str(memAddrTag))
         startMIdx = bitIndex = 0  # start position idx
         if(memAddrTag[1].lower() == 'x'):
             # Set bool value 
@@ -272,7 +272,7 @@ class S71200Client(object):
             startMIdx = int(memAddrTag.lower().replace('freal', ''))
             snap7.util.set_real(data, 0, val)
         else: 
-            print("Error: writeMem()> input type invlided: %s" %str(memAddrTag))
+            print("Error: writeMem()> input type invalid: %s" %str(memAddrTag))
             return None 
         try:
             memoryArea = MEM_AREA_IDX[memType]
@@ -337,5 +337,5 @@ def testCase(mode):
 
 #-----------------------------------------------------------------------------
 if __name__ == '__main__':
-    testmode = int(input("Please enter the test mode [0-2]: "))
-    testCase(testmode)
+    testMode = int(input("Please enter the test mode [0-2]: "))
+    testCase(testMode)

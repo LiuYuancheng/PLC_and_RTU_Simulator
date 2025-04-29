@@ -8,7 +8,7 @@
 # 
 # Author:      Yuancheng Liu
 #
-# Version:     v0.1.3
+# Version:     v0.1.4
 # Created:     2024/04/02
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License
@@ -44,14 +44,14 @@ import snap7Comm
 from snap7Comm import BOOL_TYPE, INT_TYPE, REAL_TYPE
 
 RECON_INT = 15      # reconnection time interval default set 15 sec
-DEF_RW_PORT = 3001  # default realworld UDP connection port
+DEF_RW_PORT = 3001  # default real-world UDP connection port
 DEF_S7_PORT = 102   # default S7comm port.
 
 
-# Define all the module local untility functions here:
+# Define all the module local utility functions here:
 #-----------------------------------------------------------------------------
 def parseIncomeMsg(msg):
-    """ parse the income realworld emulator's message to tuple with 3 element: 
+    """ Parse the income real-world emulator's message to tuple with 3 element: 
         request key, type and jsonString
         Args: msg (str): example: 'GET;dataType;{"user":"<username>"}'
     """
@@ -68,33 +68,33 @@ def parseIncomeMsg(msg):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class RealWorldConnector(object):
-    """ A UDP connector(client) used to connect to the realword emulator app 
-        to fetech the realworld electrical signal changes or sensor value.
+    """ A UDP connector(client) used to connect to the real word emulator app 
+        to fetch the Real-world electrical signal changes or sensor value.
     """
 
     def __init__(self, parent, address) -> None:
         self.parent = parent
         self.address = address
-        self.realwordInfo = {'ip': address[0], 'port': address[1]}
-        self.rwConnector = udpCom.udpClient((self.realwordInfo['ip'], self.realwordInfo['port']))
-        self.recoonectCount = RECON_INT
-        # Test login the real world emulator
-        self.rtuID = self.parent.getID()
-        self.realworldOnline = self._loginRealWord(plcID=self.rtuID)
-        connMsg = 'Login the realworld successfully.' if self.realworldOnline else 'Cannot connect to the realworld emulator.'
+        self.realworldInfo= { 'ip': address[0], 'port': address[1]}
+        self.rwConnector = udpCom.udpClient((self.realworldInfo['ip'], self.realworldInfo['port']))
+        self.reconnectCount = RECON_INT
+        # Test login the Real-world emulator
+        self.plcID = self.parent.getPlcID()
+        self.realworldOnline = self._loginRealWord(plcID= self.plcID)
+        connMsg = 'Login the Real-world simulator successfully' if self.realworldOnline else 'Cannot connect to the Real-world emulator'
         Log.info(connMsg)
 
 #-----------------------------------------------------------------------------
     def _loginRealWord(self, plcID=None):
-        """ Try to connect to the realworld emulator with the plc ID."""
-        Log.info("Try to connect to the realword [%s]..." % str(self.address))
+        """ Try to connect to the Real-world emulator with the plc ID."""
+        Log.info("Try to connect to the real word [%s]..." % str(self.address))
         rqstKey, rqstType, rqstDict = 'GET', 'login', {'plcID': plcID}
         result = self._queryToRW(rqstKey, rqstType, rqstDict)
         if result:
-            Log.info("Realworld emulator online, state: ready")
+            Log.info("Real-world emulator online, state: ready")
             return True
         if result is None: 
-            Log.warning("Realworld emulator did not response login request.")
+            Log.warning("Real-world emulator did not response login request.")
             return False
         elif result and len(result) == 3:
             k, t, val = result
@@ -102,38 +102,38 @@ class RealWorldConnector(object):
                 try:
                     if 'state' in val.keys() and val['state'] == 'ready':
                         print("Reconnection finished.")
-                        Log.info("Realworld emulator online, state: ready")
+                        Log.info("Real-world emulator online, state: ready")
                         return True 
                     else:
-                        Log.warning("Realworld emulator respose not ready")
+                        Log.warning("Real-world emulator response not ready")
                         return False
                 except:
-                    Log.warning("Realworld emulator respose not valid: %s" %str(val))
+                    Log.warning("Real-world emulator response not valid: %s" %str(val))
                     return False
             else:
-                Log.warning("Realworld emulator respose parameter missing: %s" %str(result))
+                Log.warning("Real-world emulator response parameter missing: %s" %str(result))
                 return False
         else:
-            Log.warning("Realworld emulator respose format not valid: %s , ingore the message." %str(result))
+            Log.warning("Real-world emulator response format not valid: %s , ignore the message." %str(result))
             return False
-        
+
     def isRealWorldOnline(self):
         return self.realworldOnline
 
 #-----------------------------------------------------------------------------
     def reConnectRW(self):
-        """ Try to reconnect to the real world emulator."""
-        if self.recoonectCount <= 0:
-            Log.info('Try to reconnect to the realworld.')
-            self.realworldOnline = self._loginRealWord(plcID=self.rtuID)
-            self.recoonectCount = RECON_INT
+        """ Try to reconnect to the Real-world emulator."""
+        if self.reconnectCount <= 0:
+            Log.info('Try to reconnect to the Real-world simulator.')
+            self.realworldOnline = self._loginRealWord(plcID=self.plcID)
+            self.reconnectCount = RECON_INT
             return
-        print("Reconnect to the realworld in %s sec" %str(self.recoonectCount))
-        self.recoonectCount -= 1
+        print("Reconnect to the Real-world emulator in %s sec" %str(self.reconnectCount))
+        self.reconnectCount -= 1
 
 #-----------------------------------------------------------------------------
     def fetchRWInputData(self, rqstType='input', inputDict={}):
-        """ Fetch the input data from the realworld emulator. 
+        """ Fetch the input data from the Real-world emulator. 
             return: (key, rqstType, inputResultDict)
         """
         rqstKey = 'GET'
@@ -144,8 +144,9 @@ class RealWorldConnector(object):
 
 #-----------------------------------------------------------------------------
     def changeRWCoil(self, rqstType='signals', coilDict={}):
-        """ Send the current rtu coils state to the realwrold emulator."""
+        """ Send the current plc coils state to the Real-world emulator."""
         rqstKey = 'POST'
+        print(coilDict)
         if isinstance(coilDict, dict):
             return self._queryToRW(rqstKey, rqstType, coilDict)
         else:
@@ -154,12 +155,14 @@ class RealWorldConnector(object):
 
 #-----------------------------------------------------------------------------
     def _queryToRW(self, rqstKey, rqstType, rqstDict, response=True):
-        """ Query message send to realword emulator app.
+        """ Query message send to Real-world emulator app.
             Args:
                 rqstKey (str): request key (GET/POST/REP)
                 rqstType (str): request type string.
-                rqstDict (doct): request detail dictionary.
-                response (bool): flag to identify whether get the response
+                rqstDict (dict): request detail dictionary.
+                dataOnly (bool, optional): flag to identify whether only return the 
+                    data. Defaults to True. return (responseKey, responseType, responseJson) if set
+                    to False.
             Returns:
                 tuple: (key, type, result) or None if lose connection.
         """
@@ -172,7 +175,7 @@ class RealWorldConnector(object):
                     #gv.gDebugPrint('===> resp:%s' %str(resp), logType=gv.LOG_INFO)
                     k, t, data = parseIncomeMsg(resp)
                     if k != 'REP': Log.warning('The msg reply key %s is invalid' % k)
-                    if t != rqstType: Log.warning('The reply type miss match: %s' %str((rqstType, t)))
+                    if t != rqstType: Log.warning('The reply type do not match : %s' %str((rqstType, t)))
                     try:
                         result = json.loads(data)
                         self.lastUpdateT = datetime.now()
@@ -186,6 +189,9 @@ class RealWorldConnector(object):
         else:
             Log.error("queryBE: input missing: %s" %str(rqstKey, rqstType, rqstDict))
         return (k, t, result)
+
+    def stop(self):
+        self.rwConnector.disconnect()
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -243,7 +249,7 @@ class s7CommService(threading.Thread):
 #-----------------------------------------------------------------------------
 class rtuSimuInterface(object):
     """ A RTU simulator to provide below functions: 
-        - Create a S7Comm service running in subthread to handle the SCADA system's 
+        - Create a S7Comm service running in sub-thread to handle the SCADA system's 
             request.
         - Connect to the real world emulator to fetch the sensor state and calculate 
             the output coils state based on the ladder logic. 
@@ -273,7 +279,7 @@ class rtuSimuInterface(object):
                                        hostIP=self.s7commAddr[0], 
                                        hostPort=self.s7commAddr[1])
         # Over write the below private function to add the customized function: 
-        # Init the RTU memeory: 
+        # Init the RTU memory: 
         self._initMemoryAddrs()
         self._initMemoryDefaultVals()
         self._initLadderHandler()
@@ -283,7 +289,7 @@ class rtuSimuInterface(object):
         Log.info('Finished init the RTU: %s' %str(self.rtuID))
 
     #-----------------------------------------------------------------------------
-    # The private function to be overwitten to add customized function.
+    # The private function to be overwritten to add customized function.
     def _initRealWorldConnectionParm(self):
         """ Added the real world emulator data/parameters init code here.(Such as init
             the real world components state DB)
@@ -318,7 +324,7 @@ class rtuSimuInterface(object):
 
     def _updateMemory(self, result):
         """ Overwrite this function to update the memory state based on the 
-            realworld feed back
+            real-world feed back
         """
         # Example: 
         # s7commServer = self.s7Service.getS7ServerRef()
@@ -340,13 +346,13 @@ class rtuSimuInterface(object):
         rqstDict = {}
         for key in self.regsStateRW.keys():
             rqstDict[key] = None
-        reuslt = self.rwConnector.fetchRWInputData(rqstType=self.regSRWfetchKey, 
+        result = self.rwConnector.fetchRWInputData(rqstType=self.regSRWfetchKey, 
                                                    inputDict=rqstDict)
-        return reuslt
+        return result
             
 #-----------------------------------------------------------------------------
     def periodic(self, now):
-        """ Init all the RTU actions here and this function will be called periodicly 
+        """ Init all the RTU actions here and this function will be called periodic 
             by the program main loop.
         """
         sensorInfo = self.getRWInputInfo()
