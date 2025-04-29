@@ -2,14 +2,14 @@
 #-----------------------------------------------------------------------------
 # Name:        plcServerTest.py
 #
-# Purpose:     This moudle is a test case program of the lib<modbusTcpCom.py>
-#              to start a Modbus-TCP server to simulate a PLC to handle holding
+# Purpose:     This module is a test case program of the lib<modbusTcpCom.py>
+#              to start a ModBus-TCP server to simulate a PLC to handle holding
 #              register and coils set and read request.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2023/06/11
-# Version:     v_0.1.2
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License    
 #-----------------------------------------------------------------------------

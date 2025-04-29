@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------
 # Name:        modbusTcpCom.py
 #
-# Purpose:     This module will provide the modbus-TCP client and server communication
+# Purpose:     This module will provide the ModBus-TCP client and server communication
 #              API for testing or simulating the data flow connection between PLC and SCADA 
 #              system. The module is implemented based on python pyModbus lib module: 
 #              - Reference: https://github.com/sourceperl/pyModbusTCP
@@ -10,14 +10,14 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2023/06/11
-# Version:     v_0.1.3
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
 """ Program Design:
 
-    We want to create a normal Modbus TCP communication channel (client + server) lib
-    to read the data from a real PLC or simulate the PLC Modbus data handling process (handle 
+    We want to create a simple ModBus TCP communication channel (client + server) lib
+    to read the data from a real PLC or simulate the PLC ModBus data handling process (handle 
     modbusTCP request from other program which same as PLC).
     
     Four modules will be provided in this module: 
@@ -39,15 +39,15 @@
     - plcDataHandler: A pyModbusTcp.dataHandler module to keep one allow read white list and one 
         allow write white list to filter the client's coils or registers read and write request.
         As most of the PLC are using the input => register (memory) parameter config, they are 
-        not allowed to change the input directly, we only provide the coil and holding register 
+        not allowed to change the input directly, we only provide the coils and holding register 
         write functions.
     
-    - modbusTcpClient: Modbus-TCP client module to read/write holding register and coils data 
+    - modbusTcpClient: ModBus-TCP client module to read/write holding register and coils data 
         from/to the target PLC. 
 
-    - modbusTcpServer: Modbus-TCP server module will be used by PLC module to handle the modbus 
+    - modbusTcpServer: ModBus-TCP server module will be used by PLC module to handle the ModBus 
         data read/set request. If the input data handler is None, the server will create and keep 
-        one empty databank inside.
+        one empty data bank inside.
 """
 import re
 import time
@@ -132,12 +132,12 @@ class plcDataHandler(DataHandler):
         self.ladderDict = OrderedDict()
 
     def _checkAllowRead(self, ipaddress):
-        """ Check whether the input IP addres is allowed to read the info."""
+        """ Check whether the input IP address is allowed to read the info."""
         if (self.allowRipList is None) or (ipaddress in self.allowRipList): return True
         return False 
 
     def _checkAllowWrite(self, ipaddress):
-        """ Check whether the input IP addres is allowed to write the info."""
+        """ Check whether the input IP address is allowed to write the info."""
         if (self.allowWipList is None) or (ipaddress in self.allowWipList): return True
         return False
     
@@ -145,8 +145,8 @@ class plcDataHandler(DataHandler):
     def initServerInfo(self, serverInfo):
         """ Init the server Information.
             Args: serverInfo (<ModbusServer.ServerInfo>): after passed the datahandler to the 
-            modbus server, call this function and pass in the ModbusServer.ServerInfo obj so in 
-            PLC logic you can all the set/update function to change the value in databank.
+            ModBus server, call this function and pass in the ModbusServer.ServerInfo obj so in 
+            PLC logic you can all the set/update function to change the value in data bank.
         """
         self.serverInfo = serverInfo
 
@@ -159,7 +159,8 @@ class plcDataHandler(DataHandler):
         if ipaddress and re.match(IPV4_PATTERN, ipaddress):
             if not ipaddress in self.allowRipList:
                 self.allowRipList.append(ipaddress)
-            return True 
+            return True
+        print("Error addAllowReadIp() : Invalid IP address %s" %ipaddress)
         return False
 
     def addAllowWriteIp(self, ipaddress):
@@ -172,12 +173,13 @@ class plcDataHandler(DataHandler):
             if not ipaddress in self.allowWipList:
                 self.allowWipList.append(ipaddress)
             return True
+        print("Error addAllowReadIp() : Invalid IP address %s" %ipaddress)
         return False
         
     def addLadderLogic(self, ladderKey, logicObj):
         """ Add a <ladderLogic> obj in the ladder logic, all the ladder logic will be executed 
-            in the add in sequence. So the logic execution piority will follow the add in 
-            sequence, the next logic result will over write the previous one.
+            based on the add in sequence. So the logic execution priority will follow the add in 
+            sequence, the next logic result will over write the previous one if there is conflict.
             Args:
                 ladderKey (str): ladder logic name
                 logicObj (ladderLogic): _description_
@@ -188,7 +190,7 @@ class plcDataHandler(DataHandler):
 # Init all the iterator read() functions.(Internal callback by <modbusTcpServer>)
 # All the input args will follow below below formate:
 #   address (int): output coils address idx [Q0.x] 
-#   count (int): address offset, return list length will be x + offsert.
+#   count (int): address offset, return list length will be x + offset.
 #   srv_info (ModbusServer.ServerInfo>): passed in by server.
 
     def read_coils(self, address, addrOffset, srv_info):
@@ -231,7 +233,7 @@ class plcDataHandler(DataHandler):
 # Init all the iterator write() functions.(Internal callback by <modbusTcpServer>)
 # All the input args will follow below below formate:
 #   address (int): output coils address idx [Q0.x] 
-#   count (int): address offset, return list length will be x + offsert.
+#   count (int): address offset, return list length will be x + offset.
 #   srv_info (ModbusServer.ServerInfo>): passed in by server.
 
 
@@ -284,20 +286,20 @@ class plcDataHandler(DataHandler):
         if isinstance(ipList, list) or isinstance(ipList, tuple) or ipList is None:
             self.allowRipList = list(ipList)
             return True
-        print("setAllowReadIpaddresses(): the input IP list is not valid.")
+        print("Error setAllowReadIpaddresses(): the input IP list is not valid.")
         return False
 
     def setAllowWriteIpaddresses(self, ipList):
         if isinstance(ipList, list) or isinstance(ipList, tuple) or ipList is None:
             self.allowWipList = list(ipList)
             return True
-        print("setAllowWriteIpaddresses(): the input IP list is not valid.")
+        print("Error setAllowWriteIpaddresses(): the input IP list is not valid.")
         return False
 
     def updateOutPutCoils(self, address, bitList):
         if self.serverInfo:
             return super().write_coils(address, bitList, self.serverInfo)
-        print("updateOutPutCoils() Error: Parent modBus server not config, call initServerInfo() first.")
+        print("Error updateOutPutCoils() Error: Parent modBus server not config, call initServerInfo() first.")
         return False
 
     def updateHoldingRegs(self, address, bitList):
@@ -305,7 +307,7 @@ class plcDataHandler(DataHandler):
             result = super().write_h_regs(address, bitList, self.serverInfo)
             if self.autoUpdate: self.updateState()
             return result
-        print("updateHoldingRegs() Error: Parent modBus server not config, call initServerInfo() first.")
+        print("Error updateHoldingRegs() : Parent modBus server not config, call initServerInfo() first.")
         return False
 
     def updateState(self):
@@ -332,13 +334,13 @@ class plcDataHandler(DataHandler):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class modbusTcpClient(object):
-    """ Modbus-TCP client module to read/write data from/to PLC."""
+    """ ModBus-TCP client module to read/write data from/to PLC."""
     def __init__(self, tgtIp, tgtPort=502, defaultTO=30) -> None:
         """ Init example: client = modbusTcpCom.modbusTcpClient('127.0.0.1')
             Args:
                 tgtIp (str): target PLC ip Address. 
-                tgtPort (int, optional): modbus port. Defaults to 502.
-                defaultTO (int, optional): default time out if modbus server doesn't 
+                tgtPort (int, optional): ModBus port. Defaults to 502.
+                defaultTO (int, optional): default time out if ModBus server doesn't 
                     response. Defaults to 30 sec.
         """
         self.tgtIp = tgtIp
@@ -402,7 +404,7 @@ class modbusTcpClient(object):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class modbusTcpServer(object):
-    """ Modbus-TCP server, used by PLC module to handle the modbus data read/set 
+    """ ModBus-TCP server, used by PLC module to handle the ModBus data read/set 
         request.
     """
     def __init__(self, hostIp='0.0.0.0', hostPort=502, dataHandler=None) -> None:
@@ -411,7 +413,7 @@ class modbusTcpServer(object):
             server = modbusTcpCom.modbusTcpServer(hostIp=hostIp, hostPort=hostPort, dataHandler=dataMgr)
         Args:
             hostIp (str, optional): '0.0.0.0' or 'localhost'. Defaults to '0.0.0.0'.
-            hostPort (int, optional): modbus port. Defaults to 502.
+            hostPort (int, optional): ModBus port. Defaults to 502.
             dataHandler (<plcDataHandler>, optional): The handler object to auto process 
                 register and coils change. Defaults to None.
         """
@@ -436,7 +438,7 @@ class modbusTcpServer(object):
 #-----------------------------------------------------------------------------
     def startServer(self):
         """ Run the server start loop."""
-        print("Start to run the Modbus TCP server: (%s, %s)" %(self.hostIp, str(self.hostPort)))
+        print("Start to run the ModBus TCP server: (%s, %s)" %(self.hostIp, str(self.hostPort)))
         self.server.start()
 
     def stopServer(self):

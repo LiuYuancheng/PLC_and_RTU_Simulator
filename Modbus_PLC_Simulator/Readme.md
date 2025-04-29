@@ -1,4 +1,4 @@
-# Modbus PLC Simulator [Usage Manual]
+# Modbus PLC Simulator [ Usage Manual ]
 
 ```powershell
 # Library Usage Manual
@@ -11,7 +11,7 @@ This component emulates the functionality of a PLC, the design follows the core 
 ![](../doc/img/plcWorkflow.png)
 
 ```
-# Version:     v0.1.3
+# Version:     v0.1.4
 # Created:     2023/06/22
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License

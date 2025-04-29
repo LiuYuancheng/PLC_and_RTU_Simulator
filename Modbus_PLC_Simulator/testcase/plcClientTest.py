@@ -1,14 +1,14 @@
 #-----------------------------------------------------------------------------
 # Name:        plcClientTest.py
 #
-# Purpose:     This modulde is a test case program of lib module <modbusTcpCom.py>
-#              to start a Modbus-TCP client connecting to the <plcServerTest.py> to 
+# Purpose:     This module is a test case program of lib module <modbusTcpCom.py>
+#              to start a ModBus-TCP client connecting to the <plcServerTest.py> to 
 #              test set and read the data from PLC server.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2023/06/11
-# Version:     v_0.1.2
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License      
 #-----------------------------------------------------------------------------
@@ -47,7 +47,7 @@ hostPort = 502
 
 client = modbusTcpCom.modbusTcpClient(hostIp)
 
-print('\nTestcase 01: test modbus server connection.')
+print('\nTestcase 01: test ModBus server connection.')
 
 while not client.checkConn():
     print('try connect to the PLC')

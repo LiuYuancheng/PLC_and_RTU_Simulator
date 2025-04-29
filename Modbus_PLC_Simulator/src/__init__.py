@@ -20,10 +20,10 @@ Name: lib
 Description:
 - provide the module used as lib to import in the application modules.
 
-Modules inclided in the current package: 
+Modules include in the current package: 
 
 1. modbusTCPCom.py: 
-- provide client and server API to handle the ModbusTCP communication.
+- provide client and server API to handle the ModBus-TCP communication.
 
 2.plcSimulator.py
 - provide the interface class to simulate PLC/RTU 

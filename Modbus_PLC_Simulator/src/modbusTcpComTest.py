@@ -6,7 +6,7 @@
 # Author:      Yuancheng Liu, Jun Heng Sim
 #
 # Created:     2023/06/21
-# Version:     v_0.1.1
+# Version:     v_0.1.4
 # Copyright:   Copyright (c) 2023 LiuYuancheng
 # License:     MIT License 
 #-----------------------------------------------------------------------------
@@ -19,16 +19,16 @@ class testModbusClientThread(threading.Thread):
     """
     This class is a subclass that inherits from the threading.Thread class. 
     It extends the functionality of the thread with additional attributes and 
-    methods specific to testing Modbus TCP client communication.
+    methods specific to testing ModBus TCP client communication.
     
     Attributes:
         client: Represents modbusTcpClient object.
 
     Methods:
         __init__(): Initialises the testModbusClientThread object
-        run(): Establishes a connection to a Modbus server and checks the connection. Refer
+        run(): Establishes a connection to a ModBus server and checks the connection. Refer
         to the method description for more details.
-        closeClient(): Terminates the Modbus TCP client connection.
+        closeClient(): Terminates the ModBus TCP client connection.
 
     Unit Test Methods:
         getCoilBitsTest(): Performs a unit test for the getCoilsBits() method of the 
@@ -52,12 +52,12 @@ class testModbusClientThread(threading.Thread):
 
     def run(self):
         """
-        Overrides the run() method from the threading.Thread class. It
-        estabishes a connection to a Modbus server and checks the connection.
+        Overrides the run() method from the threading.Thread class. It will
+        establish a connection to a ModBus server and checks the connection.
         Returns:
             None
         Raises:
-            Exception: If the creation of the Modbus TCP client fails
+            Exception: If the creation of the ModBus TCP client fails
         Examples:
             client = testModbusClientThread(None, 1, "Client Thread")
             client.start()
@@ -67,7 +67,7 @@ class testModbusClientThread(threading.Thread):
         if client:
             self.client = client
         else:
-            raise Exception("Test Failed: Unable to initialise Modbus Client")
+            raise Exception("Test Failed: Unable to initialise ModBus Client")
         while not self.client.checkConn():
             print('Attempting connection to PLC')
             print(client.getCoilsBits(0, 4))
@@ -75,7 +75,7 @@ class testModbusClientThread(threading.Thread):
     
     def closeClient(self):
         """
-        Terminates the Modbus TCP client connection
+        Terminates the ModBus TCP client connection
         Returns:
             None
         Raises:
@@ -96,7 +96,7 @@ class testModbusClientThread(threading.Thread):
 
     def getCoilBitsTest(self, readInput, expectedOutput, testID):
         """
-        Performs a unit test for getCoilsBits() method ofthe ModbusTcpClient object. 
+        Performs a unit test for getCoilsBits() method of the ModbusTcpClient object. 
         It compares the actual output with the expected output and raises an assertion 
         error if they do not match.
         Args:
@@ -249,17 +249,17 @@ class testModbusServerThread(threading.Thread):
     """
     This class is a subclass that inherits from the threading.Thread class. 
     It extends the functionality of the thread with additional attributes and 
-    methods specific to testing Modbus TCP server communication.
+    methods specific to testing ModBus TCP server communication.
     
     Attributes:
         server: Represents modbusTcpServer object.
         dataMgr: Represents the plcDataHandler object.
 
     Methods:
-        __init__(): Initialises the testModbusServerThread object
-        run(): Establishes and starts a Modbus server. Refer to the method description 
+        __init__(): Initialise the testModbusServerThread object
+        run(): Establishes and starts a ModBus server. Refer to the method description 
         for more details.
-        closeServer(): Terminates the Modbus TCP client connection.
+        closeServer(): Terminates the ModBus TCP client connection.
     """
 
     def __init__(self, parent, threadID, name, testDataManager):
@@ -270,11 +270,11 @@ class testModbusServerThread(threading.Thread):
     def run(self):
         """
         Overrides the run() method from the threading.Thread class. It
-        establishes and starts a Modbus server. 
+        establishes and starts a ModBus server. 
         Returns:
             None
         Raises:
-            Exception: If the creation of the Modbus TCP server fails
+            Exception: If the creation of the ModBus TCP server fails
         Examples:
             server = testModbusServerThread(None, 2, "Server Thread")
             server.start()
@@ -288,12 +288,12 @@ class testModbusServerThread(threading.Thread):
         if server:
             self.server = server
         else:
-            raise Exception("Test Failed: Unable to initialise Modbus Server")
+            raise Exception("Test Failed: Unable to initialise ModBus Server")
         self.server.startServer()
 
     def closeServer(self):
         """
-        Closes the Modbus TCP server
+        Closes the ModBus TCP server
         Returns:
             None
         Raises:
@@ -318,7 +318,7 @@ class testPLCDataHandler(modbusTcpCom.plcDataHandler):
     """
     This class is a subclass that inherits from the modbusTcpCom.plcDatahandler class. 
     It extends the functionality of the data handler with additional attributes and 
-    methods specific to testing Modbus TCP communication data handling.
+    methods specific to testing ModBus TCP communication data handling.
     
     Attributes:
         serverInfo: Represents ModbusServerInfo object that contains the server information.

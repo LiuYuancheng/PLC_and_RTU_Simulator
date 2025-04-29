@@ -32,7 +32,7 @@ import plcSimulator
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class onlyCoilLadderLogic(modbusTcpCom.ladderLogic):
-    """ Indiviaul holder register and coil usage, no executable ladder logic 
+    """ Individual holder register and coil usage, no executable ladder logic 
         between them.
     """
     def __init__(self, parent, ladderName) -> None:
@@ -59,7 +59,7 @@ class onlyCoilLadderLogic(modbusTcpCom.ladderLogic):
 #-----------------------------------------------------------------------------
 class trainPowerPlcSet(plcSimulator.plcSimuInterface):
     """ A PlC simulator to provide below functions: 
-        - Create a modbus service running in subthread to handle the SCADA system's 
+        - Create a modbus service running in sub-thread to handle the SCADA system's 
             modbus requirment.
         - Connect to the real world emulator to fetch the sensor state and calculate 
             the output coils state based on the ladder logic. 
