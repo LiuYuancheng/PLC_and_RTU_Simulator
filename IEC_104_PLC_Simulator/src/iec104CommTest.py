@@ -2,11 +2,7 @@
 #-----------------------------------------------------------------------------
 # Name:        ice104CommTest.py
 #
-# Purpose:     This module will provide the IEC-60870-5-104 client and server 
-#              communication API for testing or simulating the data flow connection 
-#              between PLC/RTU and SCADA system. The module is implemented based 
-#              on python iec104-python lib module: 
-#              - Reference: https://github.com/Fraunhofer-FIT-DIEN/iec104-python
+# Purpose:     This module is the case case program for the 
 #
 # Author:      Yuancheng Liu
 #
@@ -74,20 +70,20 @@ def main():
     client.addPoint(testStationAddr, ptAddr2, pointType=c104.Type.M_SP_NA_1)
     ptAddr3 = 13
     client.addPoint(testStationAddr, ptAddr3, pointType=c104.Type.M_ME_NC_1)
-    client.startClient()
+    client.startConnection()
     print("[_] Test client connection pass.")
     time.sleep(1)
 
     print("Test read points")
-    val1 = client.readServerPointValue(testStationAddr, ptAddr1)
+    val1 = client.setServerPointValue(testStationAddr, ptAddr1)
     rst = "[_] read point value1 pass." if val1 == c104.Step.LOWER else "[x] read point value1 error: %s." %str(val1)
     print(rst)
 
-    val2 = client.readServerPointValue(testStationAddr, ptAddr2)
+    val2 = client.setServerPointValue(testStationAddr, ptAddr2)
     rst = "[_] read point value2 pass." if val2 == False else "[x] read point value2 error: %s." %str(val2)
     print(rst)
 
-    val3 = client.readServerPointValue(testStationAddr, ptAddr3)
+    val3 = client.setServerPointValue(testStationAddr, ptAddr3)
     val3 = round(val3, 2)
     rst = "[_] read point value4 pass." if val3 == 1.01 else "[x] read point value4 error: %s." %str(val3)
     print(rst)
@@ -96,11 +92,11 @@ def main():
     print("Test update points")
     serverThread.updateValue()
 
-    val2 = client.readServerPointValue(testStationAddr, ptAddr2)
+    val2 = client.setServerPointValue(testStationAddr, ptAddr2)
     rst = "[_] read point value2 pass." if val2 == True else "[x] read point value2 error: %s." %str(val2)
     print(rst)
 
-    val3 = client.readServerPointValue(testStationAddr, ptAddr3)
+    val3 = client.setServerPointValue(testStationAddr, ptAddr3)
     val3 = round(val3, 2)
     rst = "[_] read point value4 pass." if val3 == 1.02 else "[x] read point value4 error: %s." %str(val3)
     print(rst)
@@ -109,7 +105,7 @@ def main():
     print("Test change point step value")
     client.setServerPointStepValue(testStationAddr, ptAddr1, c104.Step.HIGHER)
 
-    val1 = client.readServerPointValue(testStationAddr, ptAddr1)
+    val1 = client.setServerPointValue(testStationAddr, ptAddr1)
     rst = "[_] read point value1 pass." if val1 == c104.Step.HIGHER else "[x] read point value1 error: %s." %str(val1)
     print(rst)
 
