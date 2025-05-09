@@ -25,6 +25,10 @@ DEF_HOST_IP = '0.0.0.0'
 
 IPV4_PATTERN = r'^(\d{1,3}\.){3}\d{1,3}$'
 
+M_BOOL_TYPE = c104.Type.M_SP_NA_1   # measured bool type can only be changed by server.
+M_FLOAT_TYPE = c104.Type.M_ME_NC_1  # measured float type can only be changed by server.
+C_STEP_TYPE = c104.Type.C_RC_TA_1   # Changeable step type can only be changed by client.
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class iec104Client(object):
@@ -81,12 +85,12 @@ class iec104Client(object):
             return self.connection.get_station(common_address=commonAddr)
         return None
 
-    def addPoint(self, stationAddr, ioAddr, pointType=c104.Type.M_SP_NA_1):
+    def addPoint(self, stationAddr, ioAddr, pointType=C_STEP_TYPE):
         """ Add a new point to the existed station in the server.
             Args:
                 stationAddr (int): the station comm address in the station in range 1-65534.
                 commonAddr (int): the common address in the station in range between 0 and 16777215.
-                pointType (_type_, optional): Defaults to c104.Type.M_SP_NA_1(bool true).
+                pointType (_type_, optional): Defaults to c104.Type.C_STEP_TYPE(c104.Step.LOWER).
             Returns:
                 _type_: _description_
         """
@@ -117,11 +121,15 @@ class iec104Client(object):
             return point.value
         return None
     
-    def setServerPointVal(self, stationAddr, commonAddr, value):
+    def setServerPointStepValue(self, stationAddr, commonAddr, value):
         point = self.getPoint(stationAddr, commonAddr)
         if point:
-            point.value = value
-            return point.transmit(cause=c104.Cot.ACTIVATION)
+            if point.type == C_STEP_TYPE:
+                point.value = value
+                return point.transmit(cause=c104.Cot.ACTIVATION)
+            else:
+                print('Point type %s is not transmittable!' %str(point.type))
+                return False
         return False
 
     def stopConnection(self):
@@ -165,12 +173,12 @@ class iec104Server(object):
             return self.server.get_station(common_address=commonAddr)
         return None
     
-    def addPoint(self, stationAddr, ioAddr, pointType=c104.Type.M_SP_NA_1):
+    def addPoint(self, stationAddr, ioAddr, pointType=C_STEP_TYPE):
         """ Add a new point to the existed station in the server.
             Args:
                 stationAddr (int): the station comm address in the station in range 1-65534.
                 commonAddr (int): the common address in the station in range between 0 and 16777215.
-                pointType (_type_, optional): Defaults to c104.Type.M_SP_NA_1(bool true).
+                pointType (_type_, optional): Defaults to C_STEP_TYPE(bool true).
             Returns:
                 _type_: _description_
         """
@@ -203,7 +211,7 @@ class iec104Server(object):
     def setPointVal(self, stationAddr, commonAddr, value):
         point = self.getPoint(stationAddr, commonAddr)
         if point:
-            print(point.value)
+            print("set point value from %s to %s" %(str(point.value), str(value)))
             point.value = value
             return True
         return False
