@@ -15,6 +15,24 @@
 # Copyright:   Copyright (c) 2025 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+""" Program Design:
+
+    We want to create a simple IEC-60870-5-104 channel (client + server) library 
+    module to simulate the data communication to PLC or RTU via IEC104. For the 
+    server data storage 3 type of point data are provided:
+    1. Server measured bool value (M_SP_NA): Single-point information, can be 
+        read from server and client, but can only be changed from server via point.value = <val>
+    2. Server measured number value (M_ME_NC) : short floating point number, can 
+        be read from server and client, but can only be changed from server via point.value = <val>
+    3. Server changeable value (C_RC_TA): Regulating step command , can be read 
+        from server and client, but can only be changed from client via transmit call.
+
+    To change a measured bool value from client, add a function to link one M_SP_NA
+    with one C_RC_TA, when the client side changed C_RC_TA, then modify the M_SP_NA. 
+
+    reference: https://support.kaspersky.com/kics-for-networks/3.0/206199
+
+"""
 
 import time
 import c104
@@ -110,7 +128,7 @@ class iec104Client(object):
         """ Return the configured station address list."""
         return self.stationAddrDict.keys()
 
-    def getStationsAddrDiction(self):
+    def getStationsAddrDict(self):
         """ Return the configured station address dictionary."""
         return self.stationAddrDict
 
@@ -240,7 +258,7 @@ class iec104Server(object):
         """ Return the configured station address list."""
         return self.stationAddrDict.keys()
 
-    def getStationAddrDict(self):
+    def getStationsAddrDict(self):
         """ Return the configured station address list."""
         return self.stationAddrDict
 
