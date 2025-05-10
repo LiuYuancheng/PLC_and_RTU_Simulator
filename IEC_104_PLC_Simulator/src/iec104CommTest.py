@@ -24,6 +24,26 @@ PT1_ADDR = 11
 PT2_ADDR = 12
 PT3_ADDR = 13
 
+def showTestResult(expectVal, val, message):
+    rst = "[o] %s pass." %message if val == expectVal else "[x] %s error, expect:%s, get: %s." %(message, str(expectVal), str(val))
+    print(rst)
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+class testLadder(iec104Comm.ladderLogic):
+
+    def __init__(self, parent):
+        iec104Comm.ladderLogic.__init__(self, parent)
+
+    def runLadderLogic(self):
+        print("Test server value read functions in test ladder class.")
+        val1 = self.parent.getPointVal(STATION_ADDR, PT1_ADDR)
+        showTestResult(c104.Step.LOWER, val1, "read point value1")
+        val2 = self.parent.getPointVal(STATION_ADDR, PT2_ADDR)
+        showTestResult(False, val2, "read point value2")
+        val3 = self.parent.getPointVal(STATION_ADDR, PT3_ADDR)
+        showTestResult(1.01, round(val3, 2), "read point value3")
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class IEC104ServerThread(threading.Thread):
@@ -33,6 +53,10 @@ class IEC104ServerThread(threading.Thread):
         self.server = iec104Comm.iec104Server()
         # set the station 
         self.server.addStation(STATION_ADDR)
+        # test add same station twice
+        val = self.server.addStation(STATION_ADDR)
+        showTestResult(None, val, "test add same station twice")
+
         # default step point
         self.server.addPoint(STATION_ADDR, PT1_ADDR)
         self.server.setPointVal(STATION_ADDR, PT1_ADDR, c104.Step.LOWER)
@@ -43,19 +67,9 @@ class IEC104ServerThread(threading.Thread):
         self.server.addPoint(STATION_ADDR, PT3_ADDR, pointType=iec104Comm.M_FLOAT_TYPE)
         self.server.setPointVal(STATION_ADDR, PT3_ADDR, 1.01)
 
-    def testServerPtValRead(self):
-        print("Test server value read functions.")
-        print("Station dictionary: %s" %str(self.server.getStationsAddrDict()))
-        val1 = self.server.getPointVal(STATION_ADDR, PT1_ADDR)
-        rst = "[_] read point value1 pass." if val1 == c104.Step.LOWER else "[x] read point value1 error: %s." %str(val1)
-        print(rst)
-        val2 = self.server.getPointVal(STATION_ADDR, PT2_ADDR)
-        rst = "[_] read point value2 pass." if val2 == False else "[x] read point value2 error: %s." %str(val1)
-        print(rst)
-        val3 = self.server.getPointVal(STATION_ADDR, PT3_ADDR)
-        val3 = round(val3, 2)
-        rst = "[_] read point value3 pass." if val3 == 1.01 else "[x] read point value3 error: %s." %str(val3)
-        print(rst)
+        val = self.server.addPoint(STATION_ADDR, PT3_ADDR, pointType=iec104Comm.C_STEP_TYPE)
+        showTestResult(None, val, "test add same point twice")
+        # Init the test ladder
 
     def getServer(self):
         return self.server
@@ -75,63 +89,58 @@ class IEC104ServerThread(threading.Thread):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 def main():
-    print("[ ] Test server start")
+    print("[_] Test server start")
     serverThread = IEC104ServerThread('0.0.0.0', 2404)
     serverThread.start()
-    serverThread.testServerPtValRead()
     time.sleep(1)
-    print("[ ] Test client connection")
+    ladderLogic = testLadder(serverThread.getServer())
+    ladderLogic.runLadderLogic()
+    time.sleep(1)
+    print("[_] Test client connection")
     client = iec104Comm.iec104Client('127.0.0.1')
 
     client.addStation(STATION_ADDR)
     client.addPoint(STATION_ADDR, PT1_ADDR)
     client.addPoint(STATION_ADDR, PT2_ADDR, pointType=c104.Type.M_SP_NA_1)
     client.addPoint(STATION_ADDR, PT3_ADDR, pointType=c104.Type.M_ME_NC_1)
+    #test add out of range point
+    val = client.addPoint(STATION_ADDR, -1)
+    showTestResult(False, val, "test add out of range point")
     client.startConnection()
-    print("[_] Test client connection pass.")
+    print("[o] Test client connection pass.")
     time.sleep(1)
 
     print("Test read points")
     val1 = client.getServerPointValue(STATION_ADDR, PT1_ADDR)
-    rst = "[_] read point value1 pass." if val1 == c104.Step.LOWER else "[x] read point value1 error: %s." %str(val1)
-    print(rst)
+    showTestResult(c104.Step.LOWER, val1, "client read point value1")
 
     val2 = client.getServerPointValue(STATION_ADDR, PT2_ADDR)
-    rst = "[_] read point value2 pass." if val2 == False else "[x] read point value2 error: %s." %str(val2)
-    print(rst)
+    showTestResult(False, val2, "client read point value2")
 
     val3 = client.getServerPointValue(STATION_ADDR, PT3_ADDR)
-    val3 = round(val3, 2)
-    rst = "[_] read point value4 pass." if val3 == 1.01 else "[x] read point value4 error: %s." %str(val3)
-    print(rst)
+    showTestResult(1.01, round(val3, 2), "client read point value3")
     time.sleep(1)
 
     print("Test update points")
     serverThread.updateValue()
 
     val2 = client.getServerPointValue(STATION_ADDR, PT2_ADDR)
-    rst = "[_] read point value2 pass." if val2 == True else "[x] read point value2 error: %s." %str(val2)
-    print(rst)
+    showTestResult(True, val2, "client read point value2")
 
     val3 = client.getServerPointValue(STATION_ADDR, PT3_ADDR)
-    val3 = round(val3, 2)
-    rst = "[_] read point value3 pass." if val3 == 1.02 else "[x] read point value3 error: %s." %str(val3)
-    print(rst)
+    showTestResult(1.02, round(val3, 2), "client read point value3")
     time.sleep(1)
 
     print("Test change point step value")
     client.setServerPointStepValue(STATION_ADDR, PT1_ADDR, c104.Step.HIGHER)
     server = serverThread.getServer()
     val0 = server.getPointVal(STATION_ADDR, PT1_ADDR)
-    rst = "[_] server read server point value0 pass." if val0 == c104.Step.HIGHER else "[x] server read server point value1 error: %s." %str(val0)
-    print(rst)
+    showTestResult(c104.Step.HIGHER, val0, "server read point value0")
 
     val1 = client.getServerPointValue(STATION_ADDR, PT1_ADDR)
-    rst = "[_] client read server point value1 pass." if val1 == c104.Step.HIGHER else "[x] client read server point value1 error: %s." %str(val1)
-    print(rst)
+    showTestResult(c104.Step.HIGHER, val1, "client read point value1")
 
     serverThread.stop()
-
 
 if __name__ == '__main__':
     main()
