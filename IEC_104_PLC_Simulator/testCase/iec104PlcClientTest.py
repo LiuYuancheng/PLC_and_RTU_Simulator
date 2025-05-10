@@ -1,16 +1,16 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:        iec104PlcServerTest.py
+# Name:        iec104PlcClientTest.py
 #
-# Purpose:     This module is a test case program of the lib<modbusTcpCom.py>
-#              to start a ModBus-TCP server to simulate a PLC to handle holding
-#              register and coils set and read request.
-#
+# Purpose:     This module is a test case program of the lib module <iec104Comm.py>
+#              to simulate a HMI read or set data from the test simulated PLC module 
+#              <iec104PlcServerTest.py>
+# 
 # Author:      Yuancheng Liu
 #
-# Created:     2023/06/11
-# Version:     v_0.1.4
-# Copyright:   Copyright (c) 2023 LiuYuancheng
+# Created:     2025/05/10
+# Version:     v_0.0.2
+# Copyright:   Copyright (c) 2025 LiuYuancheng
 # License:     MIT License    
 #-----------------------------------------------------------------------------
 
@@ -20,7 +20,6 @@ import time
 import random 
 import c104
 
-import threading
 
 print("Current working directory is : %s" % os.getcwd())
 DIR_PATH = dirpath = os.path.dirname(os.path.abspath(__file__))
@@ -44,6 +43,13 @@ except ImportError as err:
     exit()
 print("- pass")
 
+def showTestResult(expectVal, val, message):
+    rst = "[o] %s pass." %message if val == expectVal else "[x] %s error, expect:%s, get: %s." %(message, str(expectVal), str(val))
+    print(rst)
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# same station and point configuration as the server side.
 STATION_ADDR = 47
 PT1_ADDR = 11
 PT2_ADDR = 12
@@ -75,18 +81,16 @@ for i in range(10):
     time.sleep(0.1)
     time.sleep(2)
     val1 = client.getServerPointValue(STATION_ADDR, PT1_ADDR)
-    rst = "[_] read point 1 pass." if val1 == random_bool1 else "[x] read point value1 error: %s." %str(val1)
-    print(rst)
+    showTestResult(random_bool1, val1, "read point 1")
     val2 = client.getServerPointValue(STATION_ADDR, PT2_ADDR)
-    rst = "[_] read point 2 pass." if val2 == random_bool2 else "[x] read point value1 error: %s." %str(val2)
-    print(rst)
+    showTestResult(random_bool2, val2, "read point 2")
     val5 = client.getServerPointValue(STATION_ADDR, PT5_ADDR)
     val5 = round(val5, 2)
     expectVal = 1.01 if val1 and val2 else 1.02
-    rst = "[_] read point 5 pass." if val5 == expectVal else "[x] read point value5 error: %s." %str(val5)
-    print(rst)
+    showTestResult(expectVal, val5, "read point 5")
     time.sleep(3)
     client.setServerPointStepValue(STATION_ADDR, PT3_ADDR, c104.Step.INVALID_0)
     client.setServerPointStepValue(STATION_ADDR, PT4_ADDR, c104.Step.INVALID_0)
     time.sleep(1)
 
+client.stopConnection()
