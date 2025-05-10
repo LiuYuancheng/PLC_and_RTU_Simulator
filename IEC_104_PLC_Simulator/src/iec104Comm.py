@@ -48,6 +48,54 @@ M_BOOL_TYPE = c104.Type.M_SP_NA_1   # measured bool type can only be changed by 
 M_FLOAT_TYPE = c104.Type.M_ME_NC_1  # measured float type can only be changed by server.
 C_STEP_TYPE = c104.Type.C_RC_TA_1   # Changeable step type can only be changed by client.
 
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+
+class ladderLogic(object):
+
+    def __init__(self, parent, ladderName='TestLadderDiagram'):
+        self.parent = parent # the parent need to be a iec104 server obj
+        self.ladderName = ladderName
+        self.stationAddr= None
+        self.srcPointAddrList = []
+        self.srcPointTypeList = []
+        self.destPointAddrList = []
+        self.destPointTypeList = []
+        self.initLadderInfo()
+
+    def initLadderInfo(self):
+        """ Init the ladder register, src and dest coils information, this function will 
+            be called during the logic init. Please over write this function.
+        """
+        pass
+
+    def getLadderName(self):
+        return self.ladderName
+
+    def getStationAddr(self):
+        return self.srcStationAddr
+    
+    def getSrcPointAddrList(self):
+        return self.srcPointAddrList
+
+    def getSrcPointTypeList(self):
+        return self.srcPointTypeList
+
+    def getDestPointAddrList(self):
+        return self.destPointAddrList
+    
+    def getDestPointTypeList(self):
+        return self.destPointTypeList
+    
+    def runLadderLogic(self):
+        """ Pass in the registers state list, source coils state list and 
+            calculate output destination coils state, this function will be called by 
+            plcDataHandler.updateState() function.
+            - Please over write this function.
+        """
+        return []
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class iec104Client(object):
@@ -153,7 +201,7 @@ class iec104Client(object):
                 return station.get_point(io_address=pointAddr)
         return None     
 
-    def setServerPointValue(self, stationAddr, pointAddr):
+    def getServerPointValue(self, stationAddr, pointAddr):
         """ Send read request to the server to synchronize the point value, return 
             the point value if the point exist else None 
         """

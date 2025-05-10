@@ -92,15 +92,15 @@ def main():
     time.sleep(1)
 
     print("Test read points")
-    val1 = client.setServerPointValue(STATION_ADDR, PT1_ADDR)
+    val1 = client.getServerPointValue(STATION_ADDR, PT1_ADDR)
     rst = "[_] read point value1 pass." if val1 == c104.Step.LOWER else "[x] read point value1 error: %s." %str(val1)
     print(rst)
 
-    val2 = client.setServerPointValue(STATION_ADDR, PT2_ADDR)
+    val2 = client.getServerPointValue(STATION_ADDR, PT2_ADDR)
     rst = "[_] read point value2 pass." if val2 == False else "[x] read point value2 error: %s." %str(val2)
     print(rst)
 
-    val3 = client.setServerPointValue(STATION_ADDR, PT3_ADDR)
+    val3 = client.getServerPointValue(STATION_ADDR, PT3_ADDR)
     val3 = round(val3, 2)
     rst = "[_] read point value4 pass." if val3 == 1.01 else "[x] read point value4 error: %s." %str(val3)
     print(rst)
@@ -109,11 +109,11 @@ def main():
     print("Test update points")
     serverThread.updateValue()
 
-    val2 = client.setServerPointValue(STATION_ADDR, PT2_ADDR)
+    val2 = client.getServerPointValue(STATION_ADDR, PT2_ADDR)
     rst = "[_] read point value2 pass." if val2 == True else "[x] read point value2 error: %s." %str(val2)
     print(rst)
 
-    val3 = client.setServerPointValue(STATION_ADDR, PT3_ADDR)
+    val3 = client.getServerPointValue(STATION_ADDR, PT3_ADDR)
     val3 = round(val3, 2)
     rst = "[_] read point value3 pass." if val3 == 1.02 else "[x] read point value3 error: %s." %str(val3)
     print(rst)
@@ -126,7 +126,7 @@ def main():
     rst = "[_] server read server point value0 pass." if val0 == c104.Step.HIGHER else "[x] server read server point value1 error: %s." %str(val0)
     print(rst)
 
-    val1 = client.setServerPointValue(STATION_ADDR, PT1_ADDR)
+    val1 = client.getServerPointValue(STATION_ADDR, PT1_ADDR)
     rst = "[_] client read server point value1 pass." if val1 == c104.Step.HIGHER else "[x] client read server point value1 error: %s." %str(val1)
     print(rst)
 
