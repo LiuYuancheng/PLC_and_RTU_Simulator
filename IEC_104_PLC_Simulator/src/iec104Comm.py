@@ -53,7 +53,7 @@
 """
 
 import time
-import c104
+import c104 # pip install c104
 from collections import OrderedDict
 
 # define the network constants
@@ -371,13 +371,13 @@ class iec104Server(object):
         point = self.getPoint(stationAddr, pointAddr)
         return point.value if point else None 
             
-    def setPointVal(self, stationAddr, pointAddr, value):
+    def setPointVal(self, stationAddr, pointAddr, value, showInfo=False):
         """ Set a measured point value based on input station and io address, return None if
             the station or io address is not in the station address dict.
         """
         point = self.getPoint(stationAddr, pointAddr)
         if point:
-            print("INFO: set point value from %s to %s" %(str(point.value), str(value)))
+            if showInfo: print("INFO: set point value from %s to %s" %(str(point.value), str(value)))
             point.value = value # only the measured point can be set.
             return True
         return False

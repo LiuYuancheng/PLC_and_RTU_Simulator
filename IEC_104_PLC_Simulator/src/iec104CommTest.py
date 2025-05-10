@@ -140,6 +140,7 @@ def main():
     val1 = client.getServerPointValue(STATION_ADDR, PT1_ADDR)
     showTestResult(c104.Step.HIGHER, val1, "client read point value1")
 
+    client.stopConnection()
     serverThread.stop()
 
 if __name__ == '__main__':
