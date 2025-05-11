@@ -25,3 +25,24 @@ The new simulator is organized into three modular components:
 ------
 
 ### Introduction
+
+IEC 104 is a standard protocol for SCADA (Supervisory Control and Data Acquisition) systems, which are often used in applications like power grids, water management, and industrial automation where remote monitoring and control are necessary. And there are widely used by PLC and RTU production such as Altus Sistemas de Automação, ABB, Siemens, and Mitsubishi Electric. 
+
+The objective is to develop cross-platform Python library with virtual PLC and RTU emulator program under the  IEC-60870-5-104 standard and the related interface which user can use them to build/simulate the components from level-0 layer(Field I/O device) to level-2/3 layer(Operations management Zone ) on the OT system. The system architecture (from level 0 to level 3) overview is shown below:![](doc/img/s_03.png)
+
+This article will introduce how we implement the virtual python PLC simulator with IEC-60870-5-104 Communication Protocol. We will introduce some background know about the IEC-60870-5-104 standard, then introduce the sub system design such as the  communication module library design, IEC data storage , Electrical Signal Simulation link and LD/ST algothm module design, the at last we will  shown some example about how to use the PLC simulator.
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
