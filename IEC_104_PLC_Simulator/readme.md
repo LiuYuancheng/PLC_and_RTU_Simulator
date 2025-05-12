@@ -119,76 +119,115 @@ In the context of IEC 60870-5-104 (IEC 104) communication, two fundamental data 
 
 ------
 
-### System Design 
+### System Design Overview
 
-After understand the detailed IEC 60870-5-104 communication protocol, we will introduce the detailed system design of our IEC104 PLC Simulator program. 
+After understanding the detailed structure of the IEC 60870-5-104 protocol in previous section, we now present the system design of the Python Virtual IEC104 PLC Simulator. The goal is to focus on simulating OT control stack — from physical-level devices to SCADA/HMI systems — in a modular, flexible Python environment suitable for academic research and industrial automation education.
 
-The system work flow is shown below: 
+The system architecture is divided into three main components as illustrated in the system workflow diagram:
 
-![](doc/img/s_05.png)Three modular components:
+![](doc/img/s_05.png)
 
-- **Communication Module** : The communication an IEC104 communication module (with PLC-side server and SCADA/HMI-side client interfaces) enabling standardized IEC104 data exchange. An UDP physical signal connector linking to the lower level physical components sensor simulator.
+The system contents 3 main components : 
 
-- **PLC/RTU Simulation Framework** : an Framework maintains virtual PLC/RTU device memory, IEC104 station (save linked IED data) , IEC104 points (save contacts and coils data), customized operation ladder logic/Structured Text algorithm, IEC104 server linking to next level OT SCADA components . 
+- **Communication Module** : This component handles all external data exchange and real-time interfacing tasks includes IEC 60870-5-104 communication stack and UDP-based electrical signal interfaces. 
+- **PLC/RTU Station Simulation Framework** : At the core of the system is the virtual PLC/RTU station includes station control modules,  memory management, measured points, changeable points and IEC104 Server. 
+- **Ladder Logic / Structured Text Module** : This component interprets control logic using Ladder Logic Diagram (61131-3-LD) or Structured Text (IEC 61131-3-STX) as defined in IEC 61131-3 and the Input Map and Output Map modules. 
 
-- **Ladder Logic/Structured Text Module** : which uses a Python plugin interface to simulate PLC/RTU logic behavior by processing virtual contact/memory inputs and updating coil states accordingly which same as the Ladder Logic Diagram (IEC 61131-3-LD) or Structured Text Program(IEC 61131-3-STX)  
 
-  
 
-#### Design of Communication Module
+------
 
-The Communication Module of the IEC 104 PLC simulator includes 2 Part PLC/RTU to Physical World Electrical Signal Link (Level0 OT Physical Field I/O Devices to Level1 OT Controller Devices ) and PLC to SCADA-HMI link (Level1 OT Controller Devices to Level2 OT Control Center (HQ). 
+### Design of Communication Module
 
-##### LC/RTU to Physical World Electrical Signal Link
+The Communication Module of the IEC 104 PLC Simulator is responsible for two essential data exchange pathways within the simulated OT system architecture: PLC/RTU to Physical World Electrical Signal Link (between Level 0 OT Physical Field I/O Devices and Level 1 OT Controller Devices) and PLC/RTU to SCADA-HMI Communication Link (Between Level 1 OT Controller Devices and Level 2 OT Control Center)
 
-The physical world components simulator program will generate the related electrical signal (such as voltage value, currently value, RPM value, frequency ). 
+#### PLC/RTU to Physical World Electrical Signal Link
 
-We create a UDP Electrical Signal Measure Interface to send these virtual sensors' data under high frequency from the the components simulator to the PLC/RTU's input pin/contact/port to simulate the real wire connection between the physical sensor and PLC, the message follow below format:
+To simulate realistic interactions between field-level sensors/actuators and the PLC/RTU controller, this subsystem provides UDP-based electrical signal interfaces to simulate analog/digital signals from Level 0 physical I/O devices. These interfaces bridge virtual sensor readings (e.g., voltage, current, breaker status) and control commands (e.g., motor start/stop) to the PLC simulation with two UDP-based communication interfaces:
 
-```python
+**UDP Electrical Signal Measurement Interface**
+
+This interface simulates high-frequency analog/digital signal transmission from virtual sensors to the PLC/RTU input ports, mimicking physical hardwired connections. A dedicated simulator generates virtual signals such as voltage, current, RPM, and breaker states, which are transmitted using the following message format:
+
+```
 Measure_Signal_GET;<SensorID>;<timestamp>;{<SignalID>:<SignalType>:<SignalValue>}
 ```
 
-If the virtual breaker position sensor send a breaker position OFF to the PLC the message will be like below:
+- **Example:** If a virtual breaker position sensor sends an "OFF" state to the PLC input pin, the UDP message would appear as:
 
 ```
 Measure_Signal_GET;PG_BK_S_0011;2024-12-06 10:38:29,134;{'POS0011':'VOLTAGE':'5V'}
 ```
 
+**UDP Electrical Signal Control Interface**
 
-
-We Use the same logic we create another UDP Electrical Signal Control Interface to do the same thing for control the components in the physical world simulation program, the message follow below format:
-
-```
-Control_Signal_POST;<itemID>;<timestamp>;{<SignalID>:<SignalType>:<SignalValue>}
-```
-
-If we want to turn on the breaker motor to flip on a breaker in the power system, the message will be link below:
+This counterpart interface allows the PLC/RTU to send control commands to virtual actuators, simulating control signal output ports such as for motor switches, relays, or breaker triggers. The message format is:
 
 ```
-Control_Signal_POST;PG_BK_M_0011;2024-12-06 10:51:41,122;{'CTRL':'MOTO_IN':'Votalge_High'}
+Control_Signal_POST;<ItemID>;<timestamp>;{<SignalID>:<SignalType>:<SignalValue>}
 ```
 
-##### IEC 104  Server and Client 
+- **Example** : To activate a virtual breaker motor for switching, the following command would be sent:
 
-The IEC104 Communication module use the c104 lib https://github.com/Fraunhofer-FIT-DIEN/iec104-python to create a multi threading based IEC104 server and client to handle the communication and related data read() and set() functions. 
+```
+Control_Signal_POST;PG_BK_M_0011;2024-12-06 10:51:41,122;{'CTRL':'MOTO_IN':'Voltage_High'}
+```
 
-- **IEC 104  Server** : IEC-60870-5-104 server class run in the PLC/RTU side to accept the connection from HMI, it provide the fetch mode and report mode, the fetch mode will simulate the real time control, every time when the server receive a request from the client it will response to the client immediately.  Report mode will simulate the remote periodic data report from RTU to HMI, it will auto manically broad cast the data to all the connected client based on the report frequency configuration. 
-- **IEC 104 Client** : IEC-60870-5-104 client class run in the SCADA (HMI) side to read and set data from the PLC/RTU side. 
+#### IEC 104 Server and Client Communication
+
+To Implement the IEC 60870-5-104 communication stack, supporting both server (PLC/RTU side) and client (SCADA/HMI side) roles. The system uses the [**iec104-python** library](https://github.com/Fraunhofer-FIT-DIEN/iec104-python) developed by Fraunhofer-FIT, enabling multi-threaded IEC 60870-5-104 client-server communication. This integration ensures compatibility with standard SCADA protocols used in critical infrastructure.
+
+**IEC 104 Server (PLC/RTU Side)**
+
+The server module runs on the PLC/RTU simulation and supports two modes:
+
+- **Fetch Mode**: Simulates real-time control operations. When a client sends a request (e.g., to read or write a data point), the server responds immediately, emulating interactive SCADA control.
+- **Report Mode**: Simulates automatic periodic reporting from RTU to SCADA. The server broadcasts data updates to all connected clients at configurable intervals, reflecting real-world telemetry behavior.
+
+**IEC 104 Client (SCADA-HMI Side)**
+
+The IEC104 client module operates on the SCADA/HMI side and manages data acquisition and control commands:
+
+- Reads measurement values (status, analog inputs) from the PLC/RTU.
+- Writes control signals or setpoints back to the PLC/RTU.
+- Interacts with real-time or historical data management modules in the SCADA system.
 
 
 
-#### Design PLC/RTU Simulation Framework
+------
 
-The PLC/RTU simulation Framework will init 3 sub-thread to act as real PLC
+### Design PLC/RTU Simulation Framework
 
-It will start a sub-thread to host multiple UDP Electrical Signal Measure Interface objects and UDP Electrical Signal Control Interface interface objects based on the number of physical components the PLC needs to connected to. Then the PLC will keep fetching the simulated physical electrical signal value. 
+The **PLC/RTU Simulation Framework** is a multi-threaded virtual control engine that emulates the behavior of real industrial PLC or RTU devices within the IEC 60870-5-104 SCADA ecosystem. It serves as the core computational and communication layer between virtual field sensors (Level 0) and the SCADA control system (Level 2).
 
-When PLC inti, it will setup the station and points address based on the configuration, then management module will keep a signal to point value mapping dictionary,  After the PLC get the simulated physical value, it will convert the signal value to IEC104 type and save the value to the related point for example a 0V can be saved as M_SP_NA_0 and 5V can be saved as M_SP_NA_TRUE. Voltage_Signal_Low can be saved as  C_RC_NA_STEP_LOWER and voltage high can be saved as C_RC_NA_STEP_HIGHER. 
+**Framework Initialization**: Upon startup, the PLC/RTU simulator performs the following initialization tasks:
 
-Based on the PLC operation clock cycle configuration, when the operation cycle start, the LD/ST Input Map module will fetch the related measured and changeable points' C104 value then covert or filled the value to related items in the ladder logic diagram such as the fill the M_SP_NA to the holding register's state. Then call the ladder Ladder Logic or ST calculation module to get the output state, then the output state such as the coil state will send to the LD/ST Output Map module and the changeable points' value will be changed. The work flow example will be show below:
+- **Point & Station Configuration**: Reads system configuration to define the IEC 104 station address, and initialize a set of **measured** and **changeable** points, following standard point types (e.g., `M_SP_NA`, `M_ME_NC`, `C_RC_TA`).
+- **Memory Management Module**: Initializes an internal mapping dictionary that associates UDP electrical signal identifiers with IEC 104 point types and values. This acts as a bridge between signal-level data and protocol-specific data formats.
+
+To emulate the asynchronous behavior of actual PLCs/RTUs, the simulation framework launches multiple background threads:
+
+**UDP Signal Handling Thread** will provide below functions:
+
+- Manages multiple instances of **UDP Electrical Signal Measure Interfaces** and **UDP Electrical Signal Control Interfaces**, according to the number of connected virtual devices.
+- Periodically fetches sensor signals (e.g., voltage, current, RPM) and control command states.
+- Converts signal values to their IEC 104 equivalents and stores them in the associated memory-mapped points.
+
+After the PLC get the simulated physical value, it will convert the raw signal value to IEC104 type and save the value to the related point for example a `0V` can be saved as M`_SP_NA_FALSE` and `5V` can be saved as `M_SP_NA_TRUE`. `Voltage_Signal_Low` can be saved as  `C_RC_NA_STEP_LOWER` and voltage high can be saved as `C_RC_NA_STEP_HIGHER`. 
+
+**LD/ST Logic Execution Thread** 
+
+This thread handles logic operations and mimics the PLC scan cycle behavior based on a configured operation clock cycle:
+
+- **Input Mapping Stage**: The `LD/ST Input Map Module` fetches current values from measured (`M_*`) and changeable (`C_*`) points and maps them to logical operands (e.g., coils, contacts, memory registers) for Ladder Logic or Structured Text processing.
+- **Logic Execution Stage**: Thee Ladder Logic / ST Calculation Module executes user-defined logic using the mapped inputs, updating internal states and determining output/control values.
+- **Output Mapping Stage**: The `LD/ST Output Map Module` processes the logic result and updates corresponding **changeable points** (e.g., breaker control status, voltage steps), simulating coil/relay actions.
+
+The work flow example will be show below:
 
 ![](doc/img/s_06.png)
+
+**Supported IEC 104 Point Types (Current Version v0.0.2)**
 
 In the currently version, we haven't implement all the measured and changeable value type, in the current version we only provide 3 type support which used to represent the state, value and step as shown below:
 
@@ -196,55 +235,88 @@ In the currently version, we haven't implement all the measured and changeable v
 - **Server measured number value (M_ME_NC)** : Short floating point number, can be read from server and client, but can only be changed from server via `point.value = <val>`, Expected value: float number, need to do round if do value compare.
 - **Server changeable value (C_RC_TA)** : Regulating step command , can be read from server and client, but can only be changed from client via transmit call. Expected value: `iec104.Step.HIGHER/LOWER/INVALID_0/INVALID_1`
 
-Based on the PLC or RTU control configuration, the LC/RTU Simulation Framework will start a sub thread with one IEC104 server which handle the SCADA HMI or remote console's request in real time or report the data based on the periodic setting. 
+**IEC 104 Server Integration**
+
+To enable interaction with the upper-level SCADA (HMI/Console), the simulation framework launches a dedicated thread running an **IEC 60870-5-104 Server**, using the [Fraunhofer FIT IEC104-Python Library](https://github.com/Fraunhofer-FIT-DIEN/iec104-python). Two host modes are provides:
+
+- **Real-Time Fetch Mode**: Responds to SCADA client queries for point states instantly.
+- **Periodic Report Mode**: Broadcasts updates to all connected SCADA clients based on a defined report interval.
 
 
 
-#### Design of Ladder Logic/Structured Text Module
+------
 
-Tge ladder Logic and ST module is an python  interface class hold the ladder logic calculation algorithm, it will take the holding register's state, source coils state then generate the destination coils states. When people use it , they need to inhert the interface to create their customized Ladder Logic class by overwrite the `initLadder()` and `runLadderLogic()` functions.
+### Design of Ladder Logic/Structured Text Module
 
-For example below ladder logic:
+The **Ladder Logic / Structured Text (ST) Module** is a core programmable logic interface within the PLC/RTU simulation framework. It provides a customizable, Python-based interface for users to define control behavior using either ladder logic constructs or Structured Text-style operations.
+
+The module is designed as a base **interface class** that users can inherit to implement their custom control logic. Two key methods must be overridden:
+
+- `initLadderInfo()`: Defines the structure and mapping of source registers, source coils, and destination coils.
+- `runLadderLogic()`: Implements the actual logic evaluation (e.g., Boolean gates, comparisons, timers) using inputs from holding registers and coils.
+
+In **Ladder Logic Mode**, logic circuits are constructed using symbolic references to:
+
+- **Holding Registers** (e.g., `reg-00`, `reg-01`)
+- **Source Coils** (e.g., `src-coil-00`)
+- **Destination Coils** (e.g., `dest-coil-02`)
+
+Example Ladder Diagram:
 
 ```
  --|reg-00|--|reg-01|----------------------(src-coil-00)------------(dest-coil-02)---
 ```
 
-To implement this ladder logic, the use need to below steps:
+To implement this logic:
 
-- Put the 'and' gate logic of reg-00, reg-01 and src-coil-00 in `runLadderLogic()` function. 
+- Define the logic operation (`AND` in this case) in `runLadderLogic()`.
 
--  Set source register info as {'address': 0, 'offset': 2} in `initLadderInfo()` function.
+- Initialize logic metadata in `initLadderInfo()`:
 
--   Set source coil info as {'address': 0, 'offset': 1} in `initLadderInfo()` function.
-
--    Set destination coil info as {'address': 2, 'offset': 1} in `initLadderInfo()` function.
-
--   Add the ladder obj to `plcDataHandler()`, then when plcDataHandler holding registers changed, the list [reg-00, reg-01] and [coil-00], will auto passed in the `runLadderLogic()` function.
-- runLadderLogic() will return the calculated coils list result, plcDataHandler will set 
-
-​      the destination coils with the result.
-
-For In `initLadder()` part, if you want to create ladder logic use the register and coils parameters as shown below  
-
-```
-self.ladderName= ladderName
-self.holdingRegsInfo = {'address': None, 'offset': None}
-self.srcCoilsInfo = {'address': None, 'offset': None}
-self.destCoilsInfo = {'address': None, 'offset': None}
-self.initLadderInfo()
+```python
+self.holdingRegsInfo = {'address': 0, 'offset': 2}      # Registers reg-00 and reg-01
+self.srcCoilsInfo    = {'address': 0, 'offset': 1}      # Coil src-coil-00
+self.destCoilsInfo   = {'address': 2, 'offset': 1}      # Coil dest-coil-02
 ```
 
-If you want to use ST to link to the point (memory address) direct, use the address parameters as shown below:
+- Add the customized ladder object to `plcDataHandler`. When holding registers or coils change, the corresponding input values are automatically passed to `runLadderLogic()`.
 
-```
-self.ladderName = ladderName
-self.stationAddr= None
-self.srcPointAddrList = []
-self.srcPointTypeList = []
-self.destPointAddrList = []
-self.destPointTypeList = []
-self.initLadderInfo()
+- `runLadderLogic()` computes the output (e.g., destination coil state) and returns the result. `plcDataHandler` then updates the relevant memory/state accordingly. as shown below:
+
+```python
+def runLadderLogic(self, regVals, srcCoilsVals):
+    output = regVals[0] and regVals[1] and srcCoilsVals[0]  # Example logic: AND gate
+    return [output]
 ```
 
-For the  detail usage, we will show an example in the next section.
+ **Structured Text (ST) Mode**
+
+In **ST Mode**, users can directly link logic operations to **point addresses** (e.g., IEC104 mapped points) without referencing coil/register offsets. This is suitable for users preferring symbolic or protocol-specific memory addressing.
+
+ST Address Setup Example:
+
+```python
+self.stationAddr = 1
+self.srcPointAddrList  = [1001, 1002]                  # Source point addresses
+self.srcPointTypeList  = ['M_SP_NA', 'M_ME_NC']        # Source types
+self.destPointAddrList = [2001]                        # Destination point address
+self.destPointTypeList = ['C_RC_TA']                   # Destination type
+```
+
+This allows logic to operate on memory-based point values retrieved directly from the simulation’s IEC 104 data map.
+
+**Execution Flow Integration**
+
+The Ladder Logic / ST module is tightly integrated with the `plcDataHandler`, which:
+
+- Monitors changes to input registers and coils.
+- Triggers execution of `runLadderLogic()` with current input values.
+- Applies the returned results to the destination coils or points.
+
+This mimics the **scan-execute-update cycle** used in real-world PLC logic engines.
+
+
+
+------
+
+> last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 12/05/2025 if you have any problem, please send me a message. 
