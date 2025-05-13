@@ -239,11 +239,11 @@ class iec104Client(object):
             return point.value
         return None
 
-    def setServerPointStepValue(self, stationAddr, commonAddr, value):
+    def setServerPointStepValue(self, stationAddr, pointAddr, value):
         """ Change the local point's step value and synchronize to the server with 
             transmit request.
         """
-        point = self.getPoint(stationAddr, commonAddr)
+        point = self.getPoint(stationAddr, pointAddr)
         if point:
             if point.type == C_STEP_TYPE:
                 point.value = value

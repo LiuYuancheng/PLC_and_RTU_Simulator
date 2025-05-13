@@ -6,6 +6,8 @@
 - **PLC/RTU Simulation Framework** : an Framework maintains virtual PLC/RTU device memory, IEC104 station (save linked IED data) , IEC104 points (save contacts and coils data), customized operation ladder logic/Structured Text algorithm, IEC104 server linking to next level OT SCADA components and a UDP physical signal connector linking to the lower level physical components sensor simulator.
 - **Ladder Logic/Structured Text Module** : a Python plugin interface program to simulate PLC/RTU operation logic behavior by processing virtual contact/memory inputs and updating coil states accordingly which same as the Ladder Logic Diagram (IEC 61131-3-LD) or Structured Text Program(IEC 61131-3-STX) running on real PLC/RTU.
 
+![](doc/img/title.png)
+
 ```python
 # Author:      Yuancheng Liu
 # Created:     2025/05/10
@@ -27,6 +29,8 @@ IEC 60870-5-104 (commonly referred to as IEC 104) is a widely adopted communicat
 This project aims to develop a cross-platform Python-based virtual PLC and RTU simulator that complies with the IEC 60870-5-104 standard. The purpose is to offer an educational and prototyping tool that allows users—particularly academic researchers and automation developers—to emulate and test control systems across different layers of an operational technology (OT) environment. As illustrated in the system architecture diagram (below), the simulator supports the creation and interaction of components spanning from Level 0 (physical field devices and sensors) up to Level 2/3 (control center and operations management zones).
 
 ![](doc/img/s_03.png)
+
+
 
 This article presents the implementation of the virtual PLC simulator with IEC 104 communication capability. It begins with a brief overview of the IEC 104 protocol, followed by a detailed explanation of the simulator's modular design—covering the communication module, IED data storage, device memory management, electrical signal simulation links, and the ladder logic/structured text algorithm engine. Finally, a practical example will demonstrate how users can apply the simulator to model real-world OT systems in a fully virtual environment.
 
@@ -313,17 +317,102 @@ This mimics the **scan-execute-update cycle** used in real-world PLC logic engin
 
 ------
 
+### Use Case Example: One Rung Ladder In IEC104 PLC Simualtor
 
+This use case will show to build a simplified IEC104 PLC simulator using the designed simulation framework. We'll simulate a basic one rung ladder logic process with signal points representing both physical sensor values and HMI (Human Machine Interface) inputs. The circuit diagram we want to implement is this : 
 
+![](doc/img/s_07.png)
 
+**PLC Configuration:**
 
+- **PLC Station ID:** `47`
+- **Ladder Logic:** Logical circuit that evaluates measured and control signal values.
+- **Number of Point**: 5 points save data under 3 data types.
 
+| Point ID | Point Address | Point Type       | Point Data Type | Ladder Rung I/O Type |
+| -------- | ------------- | ---------------- | --------------- | -------------------- |
+| pt1      | `000003`      | Measured Point   | `M_SP_NA`       | Input                |
+| pt2      | `000004`      | Measured Point   | `M_SP_NA`       | Input                |
+| pt3      | `000005`      | Changeable Point | `C_RC_TA`       | Input                |
+| pt4      | `000006`      | Changeable Point | `C_RC_TA`       | Input                |
+| pt5      | `000007`      | Measured Point   | `M_ME_NC`       | Output               |
 
+Convert the circuit to the ladder logic will be shown below:
 
+![](doc/img/s_08.png)
 
+**PLC Initialization**: in the PLC part, we need to add the station ID and all the point as shown below. 
 
+```
+serverThread = IEC104ServerThread('0.0.0.0', 2404)
+....
+self.server.addStation(STATION_ADDR)
+self.server.addPoint(STATION_ADDR, PT1_ADDR, pointType=M_BOOL_TYPE)
+self.server.addPoint(STATION_ADDR, PT2_ADDR, pointType=M_BOOL_TYPE)
+self.server.addPoint(STATION_ADDR, PT3_ADDR, pointType=C_STEP_TYPE)
+self.server.addPoint(STATION_ADDR, PT4_ADDR, pointType=C_STEP_TYPE)
+self.server.addPoint(STATION_ADDR, PT5_ADDR, pointType=M_FLOAT_TYPE)
+```
 
+**HMI Client Setup** : To read the data from HMI, at the HMI client side we need also add the exactly same point
 
+```
+client = iec104Comm.iec104Client('127.0.0.1')
+...
+client.addStation(STATION_ADDR)
+client.addPoint(STATION_ADDR, PT1_ADDR, pointType=M_BOOL_TYPE)
+client.addPoint(STATION_ADDR, PT2_ADDR, pointType=M_BOOL_TYPE)
+client.addPoint(STATION_ADDR, PT3_ADDR, pointType=C_STEP_TYPE)
+client.addPoint(STATION_ADDR, PT4_ADDR, pointType=C_STEP_TYPE)
+client.addPoint(STATION_ADDR, PT5_ADDR, pointType=M_FLOAT_TYPE)
+```
+
+**Point Mapping Configuration** : In the ladder object function `initLadderInfo()`, add the point detail as shown below.
+
+```
+def initLadderInfo(self):
+    self.stationAddr = STATION_ADDR 
+    self.srcPointAddrList = [PT1_ADDR, PT2_ADDR, PT3_ADDR, PT4_ADDR]
+    self.srcPointTypeList = [M_BOOL_TYPE, M_BOOL_TYPE, C_STEP_TYPE, C_STEP_TYPE]
+    self.destPointAddrList = [PT5_ADDR]
+    self.destPointTypeList = [M_FLOAT_TYPE]
+```
+
+**Logic Execution Code** : After finished all the point configuration, use python to implement the logic in the function `runLadderLogic()` function as shown below.
+
+```python
+def runLadderLogic(self):
+    pt3Val = self.parent.getPointVal(self.stationAddr, self.srcPointAddrList[2])
+    val3 = True if pt3Val == c104.Step.HIGHER else False
+    pt4Val = self.parent.getPointVal(self.stationAddr, self.srcPointAddrList[3])
+    val4 = True if pt4Val == c104.Step.HIGHER else False
+    val1 = self.parent.getPointVal(self.stationAddr, self.srcPointAddrList[0])
+    val2 = self.parent.getPointVal(self.stationAddr, self.srcPointAddrList[1])
+    if (val2 or val4) and (val1 and val3):
+        self.parent.setPointVal(self.stationAddr, self.destPointAddrList[0], 1.01)
+    else:
+        self.parent.setPointVal(self.stationAddr, self.destPointAddrList[0], 1.02)
+```
+
+ **HMI Simulation data usage & Physical Simulation value set**
+
+To set the point_1 and point_2 's value, when PLC get the virtual device data call the below function to set the value:
+
+```
+server.setPointVal(self, STATION_ADDR, pointAddr, value, showInfo=False)
+```
+
+To set the point_3 and point_4's value from HMI side call the function:
+
+```
+client.setServerPointStepValue(self, STATION_ADDR, pointAddr, value)
+```
+
+To read the point_5's value from the HMI side, call the function:
+
+```
+client.getServerPointValue(self, stationAddr, pointAddr)
+```
 
 
 
