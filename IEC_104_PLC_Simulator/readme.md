@@ -1,14 +1,10 @@
 # Python Virtual PLC Simulator with IEC-60870-5-104 Communication Protocol 
 
-**Project Design Purpose**: 
-
-In this follow-up project, we extend the previous Python-based virtual PLC/RTU simulator program (which interfaced to SCADA systems via Modbus-TCP and S7Comm, related link: https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc ) by adding the IEC 60870-5-104 (IEC104) protocol. This project aims to extend the PLC simulator's capabilities with IEC104 PLC/RTU feature and integrating support for the IEC-60870-5-104 (IEC104) communication protocol -- a widely-used telecontrol standard for power system automation. 
-
-The new simulator is organized into three modular components:
+**Project Design Purpose** : In this follow-up project, we extend the previous Python-based virtual PLC/RTU simulator program (which interfaced to SCADA systems via Modbus-TCP and S7Comm, related link: https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc ) by adding the support for IEC 60870-5-104 (IEC104) protocol -- a widely-used telecontrol standard for power system automation. This project re-implemented the PLC/RTU memory management and the OT data exchange flow based on the requirement of IEC104 standard. The new simulator is organized into three modular components:
 
 - **IEC104 Communication Module** : an IEC104 communication module (with PLC-side server and SCADA/HMI-side client interfaces) enabling standardized IEC104 data exchange. 
 - **PLC/RTU Simulation Framework** : an Framework maintains virtual PLC/RTU device memory, IEC104 station (save linked IED data) , IEC104 points (save contacts and coils data), customized operation ladder logic/Structured Text algorithm, IEC104 server linking to next level OT SCADA components and a UDP physical signal connector linking to the lower level physical components sensor simulator.
-- **Ladder Logic/Structured Text Module** : which uses a Python plugin interface to simulate PLC/RTU logic behavior by processing virtual contact/memory inputs and updating coil states accordingly which same as the Ladder Logic Diagram (IEC 61131-3-LD) or Structured Text Program(IEC 61131-3-STX)  
+- **Ladder Logic/Structured Text Module** : a Python plugin interface program to simulate PLC/RTU operation logic behavior by processing virtual contact/memory inputs and updating coil states accordingly which same as the Ladder Logic Diagram (IEC 61131-3-LD) or Structured Text Program(IEC 61131-3-STX) running on real PLC/RTU.
 
 ```python
 # Author:      Yuancheng Liu
@@ -26,13 +22,13 @@ The new simulator is organized into three modular components:
 
 ### Introduction
 
-IEC 60870-5-104 (commonly referred to as IEC 104) is a widely adopted communication protocol used in SCADA (Supervisory Control and Data Acquisition) systems for real-time/remote data exchange in critical infrastructure sectors such as power grids, water treatment, and industrial automation. Supported by major PLC and RTU manufacturers including Siemens, ABB, Mitsubishi Electric, and Altus Sistemas de Automação, IEC 104 plays a vital role in enabling remote monitoring and control across geographically distributed systems.
+IEC 60870-5-104 (commonly referred to as IEC 104) is a widely adopted communication protocol used in SCADA (Supervisory Control and Data Acquisition) systems for real-time/remote data exchange in critical infrastructure sectors such as power grids, water treatment, and industrial automation. Supported by major PLC and RTU manufacturers including Siemens, ABB, Mitsubishi Electric, and Altus Sistemas de Automação, IEC 104 plays a vital role in enabling remote monitoring and control across geographically distributed OT systems.
 
 This project aims to develop a cross-platform Python-based virtual PLC and RTU simulator that complies with the IEC 60870-5-104 standard. The purpose is to offer an educational and prototyping tool that allows users—particularly academic researchers and automation developers—to emulate and test control systems across different layers of an operational technology (OT) environment. As illustrated in the system architecture diagram (below), the simulator supports the creation and interaction of components spanning from Level 0 (physical field devices and sensors) up to Level 2/3 (control center and operations management zones).
 
 ![](doc/img/s_03.png)
 
-This article presents the implementation of the virtual PLC simulator with IEC 104 communication capability. It begins with a brief overview of the IEC 104 protocol, followed by a detailed explanation of the simulator's modular design—covering the communication module, IEC data storage, electrical signal simulation links, and the ladder logic/structured text algorithm engine. Finally, practical examples will demonstrate how users can apply the simulator to model real-world OT systems in a fully virtual environment.
+This article presents the implementation of the virtual PLC simulator with IEC 104 communication capability. It begins with a brief overview of the IEC 104 protocol, followed by a detailed explanation of the simulator's modular design—covering the communication module, IED data storage, device memory management, electrical signal simulation links, and the ladder logic/structured text algorithm engine. Finally, a practical example will demonstrate how users can apply the simulator to model real-world OT systems in a fully virtual environment.
 
 
 
@@ -40,26 +36,26 @@ This article presents the implementation of the virtual PLC simulator with IEC 1
 
 ### Background knowledge 
 
-In this section we will introduce the detailed IEC 60870-5-104 protocol packet structure, the data storage address configuration of station and points, the measured point and changeable point. 
+In this section we will introduce some basic background know about the the IEC 60870-5-104 standard includes the detailed  ICE104 protocol packet structure, the data storage address configuration of station and device memory management of  the measured point and changeable point. 
 
 
 
 #### IEC 60870-5-104 Protocol Detail
 
-IEC 60870-5-104 (IEC 104) is a network-based extension of IEC 60870-5-101 and is designed for communication between control stations (e.g., SCADA, DCS) and substations or field equipment over TCP/IP networks. IEC 104 uses the same Application Protocol Data Unit (APDU) format as IEC 101 but encapsulated within TCP/IP packets. An IEC 104 APDU consists of the Start Byte, Length, and Application Protocol Control Information (APCI), followed optionally by Application Service Data Unit (ASDU). The packet detail is shown blow: 
+IEC 60870-5-104 (IEC 104) is a network-based extension of IEC 60870-5-101 and is designed for communication between control stations (e.g., SCADA, DCS) and substations or field equipment over TCP/IP networks. IEC 104 uses the same Application Protocol Data Unit (APDU) format as IEC 101 but encapsulated within TCP/IP packets. An IEC 104 APDU consists of the Start Byte, Length, and Application Protocol Control Information (APCI), followed optionally by Application Service Data Unit (ASDU). The traffic packet detail is shown blow: 
 
 ![](doc/img/s_04.png)
 
-The ASDU contains the actual data being transmitted, such as monitoring values or control commands. Here's a more detailed breakdown:
+As shown in the packet structure diagram, the APCI determines the message frame type and ASDU contains the control or monitoring data being transmitted, such as monitoring values or control commands. Here's a more detailed breakdown:
 
-**APCI (Application Protocol Control Information)** section determines the frame type:
+**APCI (Application Protocol Control Information)** : 
 
 - **Start byte (0x68):** Indicates the beginning of a packet.
 
 - **Length byte:** Specifies the length of the data within the packet. 
 - **Four-byte control field:** Provides control information, including options for data transmission and acknowledgements. 
 
-**ASDU (Application Service Data Unit)** holds the actual control or monitoring data and has the following structure:
+**ASDU (Application Service Data Unit)** :
 
 - **Type Identification (TI)** : 1 byte to indicates the type of information (e.g., `0x01` for single-point)
 - **Variable Structure Qualifier (VSQ)** : 1 byte to indicate the number of elements and addressing mode. 
@@ -75,36 +71,32 @@ The ASDU contains the actual data being transmitted, such as monitoring values o
 
 #### IEC 60870-5-104 Packet Example
 
-When we capture a simple ASDU payload for a single digital point might look like this (hex):
+When we capture a simple APDU payload for responding a single digital point from PLC to the HM might look like this (hex):
 
 ```
 68 0E 00 00 00 00 01 01 06 00 01 00 00 00 01
 ```
 
-We can mapping it to the protocol detail to parse the information: 
+We can mapping it to the protocol detail to parse the detailed information: 
 
-- `68` → Start byte
-- `0E` → Length
+- `68` → APCI start byte
+- `0E` → APCI length, total message length is 15 bytes
 - `00 00 00 00` → I-Frame APCI (send/recv = 0)
-- `01` → Type ID: Single-Point Information (M_SP_NA)
-- `01` → VSQ: 1 element
+- `01` → ASDU Type ID: Single-Point Information (M_SP_NA)
+- `01` → ASDU VSQ: 1 element from memory will be transmit.
 - `06 00` → Cause of Transmission: spontaneous
 - `01 00` → ASDU station address 256. 
-- `00 00 00` → Information Object Address 0.
-- `01` → Data: status = ON (IEC type M_SP_NA)
-
-After analysis the packet, we it it is a repose data from PLC to the HMI to report one point's bool state.
+- `00 00 00` → Information Point Object Address 0.
+- `01` → Data: status = ON (IEC type M_SP_NA_TRUE)
 
 
 
 #### IEC 60870-5-104 Station and Point
 
-In IEC 104, a station represents a physical device or a group of devices that are managed and controlled by a central system. A point, within the station, represents a specific piece of data or a command that can be exchanged between the station and the central system.
+In IEC 104, a station represents a physical device or a group of devices that are managed and controlled by a central system. A point, within the station, represents a specific piece of data or a command that can be exchanged between the station and the central system. The ASDU Address and the Information Object Address (IOA) define the station and its internal points: 
 
-The ASDU Address and the Information Object Address (IOA) define the station and its internal points: 
-
-- **ASDU Address** is a 2-byte field that uniquely identifies a **remote station** (e.g., a PLC, RTU, or IED) within the SCADA network. This station represents a logical unit that gathers or controls field data, and it acts as the source or destination of telecontrol messages. The range of a station address is [1, 65534].
-- **IOA Address** is The **Information Object Address** is a 3-byte field used to uniquely identify **individual data points** (e.g., sensors, switches, analog inputs) within the context of a given ASDU (station). The range of a point address in the station is n [0, 16777215]
+- **ASDU Address [Station]** : The station ASDU address is a 2-bytes field that uniquely identifies a remote station (e.g., a PLC, RTU, or IED) within the SCADA network. This station represents a logical unit that gathers or controls field data, and it acts as the source or destination of telecontrol messages. The range of a station common address is [1, 65534].
+- **IOA Address [Point]** : The Information Object Address is a 3-bytes field used to uniquely identify the individual data points (e.g., sensors, switches, analog inputs) within the context of a given ASDU (station). The range of a point IO address in the station is [0, 16777215] .
 
 
 
@@ -112,8 +104,8 @@ The ASDU Address and the Information Object Address (IOA) define the station and
 
 In the context of IEC 60870-5-104 (IEC 104) communication, two fundamental data categories are used to represent the system state and support control functions:"measured points" refer to data that represent the state of a device or process, while "changeable points" represent commands or requests that can be sent to the device to control its behavior. 
 
-- **Measured Points (Telemetry Data)** : Measured points—also known as *monitoring points* or *telemetry objects*—represent real-time values acquired from field sensors or process instruments. These points are **read-only** from the SCADA system's perspective and are periodically or event-driven sent from field devices to the control center. Example of MP: M_ME_NA (Measured value, normalized), M_ME_NB (Measured value, scaled), M_SP_NA (Single point information), M_DP_NA (Double point information). Link: https://tatsoft.com/wp-content/uploads/2021/01/IEC8705104.pdf
-- **Changeable Points (Telecontrol Commands)** : Changeable points, or *controllable points*, represent actuators or process elements that can be **remotely controlled** via SCADA commands. These include digital outputs (on/off) and analog setpoints. The commands are issued by the SCADA client and processed by the field device (PLC/RTU), which then changes its internal state or output.  example of CP: C_SC_NA (Single command), C_DC_NA (Double command), C_RC_NA (Regulating step command), C_SE_NA (Setpoint command). Link: https://tatsoft.com/wp-content/uploads/2021/10/IEC8705104S.pdf
+- **Measured Points (Telemetry Data)** : Measured points—also known as monitoring points or telemetry objects—represent real-time values acquired from field sensors or process instruments. These points are **read-only** from the SCADA system's perspective and are periodically or event-driven sent from field devices to the control center. Example of MP: M_ME_NA (Measured value, normalized), M_ME_NB (Measured value, scaled), M_SP_NA (Single point information), M_DP_NA (Double point information). Reference Link: https://tatsoft.com/wp-content/uploads/2021/01/IEC8705104.pdf
+- **Changeable Points (Telecontrol Commands)** : Changeable points, or controllable points, represent actuators or process elements that can be **remotely controlled** via SCADA commands. These include digital outputs (on/off) and analog setpoints. The commands are issued by the SCADA client and processed by the field device (PLC/RTU), which then changes its internal state or output.  example of CP: C_SC_NA (Single command), C_DC_NA (Double command), C_RC_NA (Regulating step command), C_SE_NA (Setpoint command). Reference Link: https://tatsoft.com/wp-content/uploads/2021/10/IEC8705104S.pdf
 
 
 
@@ -121,7 +113,7 @@ In the context of IEC 60870-5-104 (IEC 104) communication, two fundamental data 
 
 ### System Design Overview
 
-After understanding the detailed structure of the IEC 60870-5-104 protocol in previous section, we now present the system design of the Python Virtual IEC104 PLC Simulator. The goal is to focus on simulating OT control stack — from physical-level devices to SCADA/HMI systems — in a modular, flexible Python environment suitable for academic research and industrial automation education.
+After understanding the detailed structure of the IEC 60870-5-104 standard protocol in previous section, we now present the system design of the Python Virtual IEC104 PLC Simulator. The goal is to focus on simulating OT monitor and control stack — from physical-level devices to SCADA/HMI systems — in a modular, flexible Python environment suitable for academic research and industrial automation education.
 
 The system architecture is divided into three main components as illustrated in the system workflow diagram:
 
@@ -129,9 +121,11 @@ The system architecture is divided into three main components as illustrated in 
 
 The system contents 3 main components : 
 
-- **Communication Module** : This component handles all external data exchange and real-time interfacing tasks includes IEC 60870-5-104 communication stack and UDP-based electrical signal interfaces. 
-- **PLC/RTU Station Simulation Framework** : At the core of the system is the virtual PLC/RTU station includes station control modules,  memory management, measured points, changeable points and IEC104 Server. 
-- **Ladder Logic / Structured Text Module** : This component interprets control logic using Ladder Logic Diagram (61131-3-LD) or Structured Text (IEC 61131-3-STX) as defined in IEC 61131-3 and the Input Map and Output Map modules. 
+- **Communication Module** : This component handles all external data exchange and real-time interfacing tasks among level0 to level 3 OT environment. As show in the orange part, the module includes IEC 60870-5-104 communication stack (IEC104 Server and Client) and UDP-based electrical signal (Measure and Control) interfaces. 
+- **PLC/RTU Station Simulation Framework** : As the core of the system running in VM as a level1 OT Controller device, As show in the green section of the diagram, the virtual PLC/RTU station includes station control modules,  memory management, measured points, changeable points and IEC104 Server. 
+- **Ladder Logic / Structured Text Module** : This component interprets control logic using Ladder Logic Diagram or Structured Text as defined in IEC 61131-3 standard with the related data and memory Input/Output mapping modules. 
+
+As shown in the diagram, the physical world power grid simulation program's different components (such as the volt and current meters, sensors) electrical signal data will be collected by the PLC and saved in different memory of the PLC/RTU. After PLC and RTU processed the data based on the pre-configured LD/ST, the feed back will send back to the physical simulator and the related breaker/controller/motor will be turned on/off, at the same time, the data will also be sent to the HMI side via IEC104 for system operator to monitor. 
 
 
 
@@ -150,27 +144,27 @@ To simulate realistic interactions between field-level sensors/actuators and the
 This interface simulates high-frequency analog/digital signal transmission from virtual sensors to the PLC/RTU input ports, mimicking physical hardwired connections. A dedicated simulator generates virtual signals such as voltage, current, RPM, and breaker states, which are transmitted using the following message format:
 
 ```
-Measure_Signal_GET;<SensorID>;<timestamp>;{<SignalID>:<SignalType>:<SignalValue>}
+Measure_Signal_GET;<SensorID>;<timestamp>;{'SignalID':<ID>,'Type':<SignalType>,Val':<SignalValue>}
 ```
 
-- **Example:** If a virtual breaker position sensor sends an "OFF" state to the PLC input pin, the UDP message would appear as:
+- **Example:** If a virtual circuit breaker's position sensor sends an breaker "on" position signal voltage high 5V state to the PLC input contact pin, the UDP message would appear as:
 
 ```
-Measure_Signal_GET;PG_BK_S_0011;2024-12-06 10:38:29,134;{'POS0011':'VOLTAGE':'5V'}
+Measure_Signal_GET;PG_BK_S_0011;2024-12-06 10:38:29,134;{'SignalID':'POS0011','Type':VOLTAGE','Val':'5V'}
 ```
 
 **UDP Electrical Signal Control Interface**
 
-This counterpart interface allows the PLC/RTU to send control commands to virtual actuators, simulating control signal output ports such as for motor switches, relays, or breaker triggers. The message format is:
+This counterpart interface allows the PLC/RTU to send control commands to virtual actuators, simulating control signal output for PLC ports such as for motor switches, relays, or breaker triggers. The message format is:
 
 ```
-Control_Signal_POST;<ItemID>;<timestamp>;{<SignalID>:<SignalType>:<SignalValue>}
+Control_Signal_POST;<ItemID>;<timestamp>;{'SignalID':<ID>,'Type':<SignalType>,Val':<SignalValue>}
 ```
 
 - **Example** : To activate a virtual breaker motor for switching, the following command would be sent:
 
 ```
-Control_Signal_POST;PG_BK_M_0011;2024-12-06 10:51:41,122;{'CTRL':'MOTO_IN':'Voltage_High'}
+Control_Signal_POST;PG_BK_M_0011;2024-12-06 10:51:41,122;{'SignalID':'CTRL', 'Type':'MOTO_IN', 'Val':'Voltage_High'}
 ```
 
 #### IEC 104 Server and Client Communication
@@ -202,25 +196,25 @@ The **PLC/RTU Simulation Framework** is a multi-threaded virtual control engine 
 
 **Framework Initialization**: Upon startup, the PLC/RTU simulator performs the following initialization tasks:
 
-- **Point & Station Configuration**: Reads system configuration to define the IEC 104 station address, and initialize a set of **measured** and **changeable** points, following standard point types (e.g., `M_SP_NA`, `M_ME_NC`, `C_RC_TA`).
+- **Point & Station Configuration**: Reads system configuration to define the IEC 104 station address, and initialize a set of measured and changeable points, following standard point types (e.g., `M_SP_NA`, `M_ME_NC`, `C_RC_TA`).
 - **Memory Management Module**: Initializes an internal mapping dictionary that associates UDP electrical signal identifiers with IEC 104 point types and values. This acts as a bridge between signal-level data and protocol-specific data formats.
 
 To emulate the asynchronous behavior of actual PLCs/RTUs, the simulation framework launches multiple background threads:
 
 **UDP Signal Handling Thread** will provide below functions:
 
-- Manages multiple instances of **UDP Electrical Signal Measure Interfaces** and **UDP Electrical Signal Control Interfaces**, according to the number of connected virtual devices.
+- Manages multiple instances of UDP Electrical Signal Measure Interfaces and UDP Electrical Signal Control Interfaces, according to the number of connected virtual devices or physical world simulators.
 - Periodically fetches sensor signals (e.g., voltage, current, RPM) and control command states.
 - Converts signal values to their IEC 104 equivalents and stores them in the associated memory-mapped points.
 
-After the PLC get the simulated physical value, it will convert the raw signal value to IEC104 type and save the value to the related point for example a `0V` can be saved as M`_SP_NA_FALSE` and `5V` can be saved as `M_SP_NA_TRUE`. `Voltage_Signal_Low` can be saved as  `C_RC_NA_STEP_LOWER` and voltage high can be saved as `C_RC_NA_STEP_HIGHER`. 
+After the PLC get the simulated physical value, it will convert the raw signal value to IEC104 type and save the value to the related point, for example a `0V` can be saved as M`_SP_NA_FALSE` and `5V` can be saved as `M_SP_NA_TRUE`. `Voltage_Signal_Low` can be saved as  `C_RC_NA_STEP_LOWER` and voltage high can be saved as `C_RC_NA_STEP_HIGHER`. 
 
 **LD/ST Logic Execution Thread** 
 
 This thread handles logic operations and mimics the PLC scan cycle behavior based on a configured operation clock cycle:
 
 - **Input Mapping Stage**: The `LD/ST Input Map Module` fetches current values from measured (`M_*`) and changeable (`C_*`) points and maps them to logical operands (e.g., coils, contacts, memory registers) for Ladder Logic or Structured Text processing.
-- **Logic Execution Stage**: Thee Ladder Logic / ST Calculation Module executes user-defined logic using the mapped inputs, updating internal states and determining output/control values.
+- **Logic Execution Stage**: The Ladder Logic / ST Calculation Module executes user-defined logic using the mapped inputs, updating internal states and determining output/control values.
 - **Output Mapping Stage**: The `LD/ST Output Map Module` processes the logic result and updates corresponding **changeable points** (e.g., breaker control status, voltage steps), simulating coil/relay actions.
 
 The work flow example will be show below:
@@ -229,10 +223,10 @@ The work flow example will be show below:
 
 **Supported IEC 104 Point Types (Current Version v0.0.2)**
 
-In the currently version, we haven't implement all the measured and changeable value type, in the current version we only provide 3 type support which used to represent the state, value and step as shown below:
+In the currently version, we haven't implement all the measured and changeable IEC104 value type, in the current version we only provide 3 type support which used to represent the state, value and step as shown below:
 
 - **Server measured bool value (M_SP_NA**):  Single-point information, can be read from server and client, but can only be changed from server via `point.value = <val>`, Expected value: `True/False`
-- **Server measured number value (M_ME_NC)** : Short floating point number, can be read from server and client, but can only be changed from server via `point.value = <val>`, Expected value: float number, need to do round if do value compare.
+- **Server measured number value (M_ME_NC)** : Short floating point number, can be read from server and client, but can only be changed from server via `point.value = <val>`, Expected value: `float number`, need to do round if do value compare.
 - **Server changeable value (C_RC_TA)** : Regulating step command , can be read from server and client, but can only be changed from client via transmit call. Expected value: `iec104.Step.HIGHER/LOWER/INVALID_0/INVALID_1`
 
 **IEC 104 Server Integration**
@@ -250,7 +244,7 @@ To enable interaction with the upper-level SCADA (HMI/Console), the simulation f
 
 The **Ladder Logic / Structured Text (ST) Module** is a core programmable logic interface within the PLC/RTU simulation framework. It provides a customizable, Python-based interface for users to define control behavior using either ladder logic constructs or Structured Text-style operations.
 
-The module is designed as a base **interface class** that users can inherit to implement their custom control logic. Two key methods must be overridden:
+The module is designed as a base **interface class** that users can inherit to implement their custom control logic. Two key methods need to be over written to add the customized logic:
 
 - `initLadderInfo()`: Defines the structure and mapping of source registers, source coils, and destination coils.
 - `runLadderLogic()`: Implements the actual logic evaluation (e.g., Boolean gates, comparisons, timers) using inputs from holding registers and coils.
@@ -264,7 +258,7 @@ In **Ladder Logic Mode**, logic circuits are constructed using symbolic referenc
 Example Ladder Diagram:
 
 ```
- --|reg-00|--|reg-01|----------------------(src-coil-00)------------(dest-coil-02)---
+ Rung01: --|reg-00|--|reg-01|----------------------(src-coil-00)------------(dest-coil-02)---
 ```
 
 To implement this logic:
@@ -289,7 +283,7 @@ def runLadderLogic(self, regVals, srcCoilsVals):
     return [output]
 ```
 
- **Structured Text (ST) Mode**
+**Structured Text (ST) Mode**
 
 In **ST Mode**, users can directly link logic operations to **point addresses** (e.g., IEC104 mapped points) without referencing coil/register offsets. This is suitable for users preferring symbolic or protocol-specific memory addressing.
 
@@ -314,6 +308,22 @@ The Ladder Logic / ST module is tightly integrated with the `plcDataHandler`, wh
 - Applies the returned results to the destination coils or points.
 
 This mimics the **scan-execute-update cycle** used in real-world PLC logic engines.
+
+
+
+------
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
