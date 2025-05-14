@@ -68,7 +68,7 @@ IEC 60870-5-104 (IEC 104) is a network-based extension of IEC 60870-5-101 and is
 
 ![](doc/img/s_04.png)
 
-` Figure-02: IEC 60870-5-104 protocol packet struture, version v_0.0.2 (2025)`
+` Figure-02: IEC 60870-5-104 protocol packet structure, version v_0.0.2 (2025)`
 
 As shown in the packet structure diagram, the APCI determines the message frame type and ASDU contains the control or monitoring data being transmitted, such as monitoring values or control commands. Here's a more detailed breakdown:
 
@@ -126,7 +126,7 @@ In IEC 104, a station represents a physical device or a group of devices that ar
 
 #### IEC 60870-5-104 Measured Point and Changeable Point
 
-In the context of IEC 60870-5-104 (IEC 104) communication, two fundamental data categories are used to represent the system state and support control functions:"measured points" refer to data that represent the state of a device or process, while "changeable points" represent commands or requests that can be sent to the device to control its behavior. 
+In the context of IEC 60870-5-104 (IEC 104) communication, two fundamental data categories are used to represent the system state and support control functions : "measured points" refer to data that represent the state of a device or process, while "changeable points" represent commands or requests that can be sent to the device to control its behavior. 
 
 - **Measured Points (Telemetry Data)** : Measured points—also known as monitoring points or telemetry objects—represent real-time values acquired from field sensors or process instruments. These points are **read-only** from the SCADA system's perspective and are periodically or event-driven sent from field devices to the control center. Example of MP: M_ME_NA (Measured value, normalized), M_ME_NB (Measured value, scaled), M_SP_NA (Single point information), M_DP_NA (Double point information). Reference Link: https://tatsoft.com/wp-content/uploads/2021/01/IEC8705104.pdf
 - **Changeable Points (Telecontrol Commands)** : Changeable points, or controllable points, represent actuators or process elements that can be **remotely controlled** via SCADA commands. These include digital outputs (on/off) and analog setpoints. The commands are issued by the SCADA client and processed by the field device (PLC/RTU), which then changes its internal state or output.  example of CP: C_SC_NA (Single command), C_DC_NA (Double command), C_RC_NA (Regulating step command), C_SE_NA (Setpoint command). Reference Link: https://tatsoft.com/wp-content/uploads/2021/10/IEC8705104S.pdf
@@ -357,11 +357,11 @@ This use case will show to build a simplified IEC104 PLC simulator using the des
 
 | Point ID | Point Address | Point Type       | Point Data Type | Ladder Rung I/O Type |
 | -------- | ------------- | ---------------- | --------------- | -------------------- |
-| pt1      | `000003`      | Measured Point   | `M_SP_NA`       | Input                |
-| pt2      | `000004`      | Measured Point   | `M_SP_NA`       | Input                |
-| pt3      | `000005`      | Changeable Point | `C_RC_TA`       | Input                |
-| pt4      | `000006`      | Changeable Point | `C_RC_TA`       | Input                |
-| pt5      | `000007`      | Measured Point   | `M_ME_NC`       | Output               |
+| pt1      | `00 00 01`    | Measured Point   | `M_SP_NA`       | Input                |
+| pt2      | `00 00 02`    | Measured Point   | `M_SP_NA`       | Input                |
+| pt3      | `00 00 03`    | Changeable Point | `C_RC_TA`       | Input                |
+| pt4      | `00 00 04`    | Changeable Point | `C_RC_TA`       | Input                |
+| pt5      | `00 00 05`    | Measured Point   | `M_ME_NC`       | Output               |
 
 Convert the circuit to the ladder logic will be shown below:
 
