@@ -20,6 +20,24 @@
 
 [TOC]
 
+- [Python Virtual PLC Simulator with IEC-60870-5-104 Communication Protocol](#python-virtual-plc-simulator-with-iec-60870-5-104-communication-protocol)
+    + [Introduction](#introduction)
+    + [Background knowledge](#background-knowledge)
+      - [IEC 60870-5-104 Protocol Detail](#iec-60870-5-104-protocol-detail)
+      - [IEC 60870-5-104 Packet Example](#iec-60870-5-104-packet-example)
+      - [IEC 60870-5-104 Station and Point](#iec-60870-5-104-station-and-point)
+      - [IEC 60870-5-104 Measured Point and Changeable Point](#iec-60870-5-104-measured-point-and-changeable-point)
+    + [System Design Overview](#system-design-overview)
+    + [Design of Communication Module](#design-of-communication-module)
+      - [PLC/RTU to Physical World Electrical Signal Link](#plc-rtu-to-physical-world-electrical-signal-link)
+      - [IEC 104 Server and Client Communication](#iec-104-server-and-client-communication)
+    + [Design PLC/RTU Simulation Framework](#design-plc-rtu-simulation-framework)
+    + [Design of Ladder Logic/Structured Text Module](#design-of-ladder-logic-structured-text-module)
+    + [Use Case Example: One Rung Ladder In IEC104 PLC Simualtor](#use-case-example--one-rung-ladder-in-iec104-plc-simualtor)
+    + [Project Conclusion](#project-conclusion)
+
+
+
 ------
 
 ### Introduction
@@ -30,7 +48,7 @@ This project aims to develop a cross-platform Python-based virtual PLC and RTU s
 
 ![](doc/img/s_03.png)
 
-
+` Figure-01: System Architecture Overview Diagram, version v_0.0.2 (2025)`
 
 This article presents the implementation of the virtual PLC simulator with IEC 104 communication capability. It begins with a brief overview of the IEC 104 protocol, followed by a detailed explanation of the simulator's modular design—covering the communication module, IED data storage, device memory management, electrical signal simulation links, and the ladder logic/structured text algorithm engine. Finally, a practical example will demonstrate how users can apply the simulator to model real-world OT systems in a fully virtual environment.
 
@@ -49,6 +67,8 @@ In this section we will introduce some basic background know about the the IEC 6
 IEC 60870-5-104 (IEC 104) is a network-based extension of IEC 60870-5-101 and is designed for communication between control stations (e.g., SCADA, DCS) and substations or field equipment over TCP/IP networks. IEC 104 uses the same Application Protocol Data Unit (APDU) format as IEC 101 but encapsulated within TCP/IP packets. An IEC 104 APDU consists of the Start Byte, Length, and Application Protocol Control Information (APCI), followed optionally by Application Service Data Unit (ASDU). The traffic packet detail is shown blow: 
 
 ![](doc/img/s_04.png)
+
+` Figure-02: IEC 60870-5-104 protocol packet struture, version v_0.0.2 (2025)`
 
 As shown in the packet structure diagram, the APCI determines the message frame type and ASDU contains the control or monitoring data being transmitted, such as monitoring values or control commands. Here's a more detailed breakdown:
 
@@ -122,6 +142,8 @@ After understanding the detailed structure of the IEC 60870-5-104 standard proto
 The system architecture is divided into three main components as illustrated in the system workflow diagram:
 
 ![](doc/img/s_05.png)
+
+` Figure-03: IEC 60870-5-104 PLC System Workflow diagram, version v_0.0.2 (2025)`
 
 The system contents 3 main components : 
 
@@ -225,6 +247,8 @@ The work flow example will be show below:
 
 ![](doc/img/s_06.png)
 
+` Figure-04: IEC 60870-5-104 PLC Data Workflow diagram, version v_0.0.2 (2025)`
+
 **Supported IEC 104 Point Types (Current Version v0.0.2)**
 
 In the currently version, we haven't implement all the measured and changeable IEC104 value type, in the current version we only provide 3 type support which used to represent the state, value and step as shown below:
@@ -323,6 +347,8 @@ This use case will show to build a simplified IEC104 PLC simulator using the des
 
 ![](doc/img/s_07.png)
 
+` Figure-05: Use case example circuit diagram version v_0.0.2 (2025)`
+
 **PLC Configuration:**
 
 - **PLC Station ID:** `47`
@@ -340,6 +366,8 @@ This use case will show to build a simplified IEC104 PLC simulator using the des
 Convert the circuit to the ladder logic will be shown below:
 
 ![](doc/img/s_08.png)
+
+` Figure-06: Use case example ladder logic diagram version v_0.0.2 (2025)`
 
 **PLC Initialization**: in the PLC part, we need to add the station ID and all the point as shown below. 
 
@@ -382,6 +410,7 @@ def initLadderInfo(self):
 
 ```python
 def runLadderLogic(self):
+    # Rung_01 logic 
     pt3Val = self.parent.getPointVal(self.stationAddr, self.srcPointAddrList[2])
     val3 = True if pt3Val == c104.Step.HIGHER else False
     pt4Val = self.parent.getPointVal(self.stationAddr, self.srcPointAddrList[3])
@@ -394,7 +423,7 @@ def runLadderLogic(self):
         self.parent.setPointVal(self.stationAddr, self.destPointAddrList[0], 1.02)
 ```
 
- **HMI Simulation data usage & Physical Simulation value set**
+**HMI Simulation data usage & Physical Simulation value set**
 
 To set the point_1 and point_2 's value, when PLC get the virtual device data call the below function to set the value:
 
@@ -413,6 +442,16 @@ To read the point_5's value from the HMI side, call the function:
 ```
 client.getServerPointValue(self, stationAddr, pointAddr)
 ```
+
+For multiple rungs ladder, put the high priority rung run in the end and low priority rung and the beginning. 
+
+
+
+------
+
+### Project Conclusion
+
+This project successfully extends the capabilities of a Python-based virtual PLC/RTU simulator by integrating the IEC 60870-5-104 protocol, a cornerstone of power system automation and industrial SCADA networks. Through its modular architecture—comprising an IEC 104 communication module, a PLC/RTU simulation framework, and a customizable Ladder Logic/Structured Text engine—the simulator bridges the gap between physical field devices and SCADA/HMI systems in a virtual environment. By emulating real-world OT interactions, such as UDP-based electrical signal exchanges and protocol-compliant telemetry and control operations, the tool provides a practical platform for testing, education, and prototyping. The use case demonstrates its ability to model complex logic circuits and simulate IEC 104 data flows, validating its utility for both academic research and industrial automation development. As a cross-platform solution, this simulator offers an accessible resource for engineers and researchers to explore critical infrastructure automation without requiring physical hardware. Future enhancements could expand support for additional IEC 104 data types and advanced PLC programming standards, further solidifying its role in modern industrial control system education and innovation.
 
 
 
