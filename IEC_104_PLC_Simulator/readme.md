@@ -341,7 +341,7 @@ This mimics the **scan-execute-update cycle** used in real-world PLC logic engin
 
 ------
 
-### Use Case Example: One Rung Ladder In IEC104 PLC Simualtor
+### Use Case Example: One Rung Ladder In IEC104 PLC Simulator
 
 This use case will show to build a simplified IEC104 PLC simulator using the designed simulation framework. We'll simulate a basic one rung ladder logic process with signal points representing both physical sensor values and HMI (Human Machine Interface) inputs. The circuit diagram we want to implement is this : 
 

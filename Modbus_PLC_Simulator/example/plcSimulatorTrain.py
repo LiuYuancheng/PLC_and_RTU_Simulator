@@ -3,7 +3,7 @@
 # Name:        plcSimulatorTrain.py
 #
 # Purpose:     A simple plc simulation module to connect and control the real-world 
-#              emulator via UDP (to simulate the eletrical signals change) and handle
+#              emulator via UDP (to simulate the electric signals change) and handle
 #              SCADA system Modbus TCP request.
 #              - This module will simulate 2 PLCs connected under master-slave mode
 #              to sense the train speed and control the trains power
@@ -18,7 +18,7 @@
 """ 
     Program design:
         We want to create a PLC simulator which can simulate a PLC set (Master[slot-0], 
-        Slave[slot-1]) with thress 16-in 8-out PLCs. The PLC sets will take 10 input 
+        Slave[slot-1]) with three 16-in 8-out PLCs. The PLC sets will take 10 input 
         speed sensor and provide 10 power output signal to implement the railway trains 
         control system.
 """
@@ -59,8 +59,8 @@ class onlyCoilLadderLogic(modbusTcpCom.ladderLogic):
 #-----------------------------------------------------------------------------
 class trainPowerPlcSet(plcSimulator.plcSimuInterface):
     """ A PlC simulator to provide below functions: 
-        - Create a modbus service running in sub-thread to handle the SCADA system's 
-            modbus requirment.
+        - Create a ModbusTCP service running in sub-thread to handle the SCADA system's 
+            ModbusTCP requirement.
         - Connect to the real world emulator to fetch the sensor state and calculate 
             the output coils state based on the ladder logic. 
         - Send the signal setup request to the real world emulator to change the signal.

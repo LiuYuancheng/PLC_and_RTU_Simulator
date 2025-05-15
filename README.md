@@ -1,8 +1,8 @@
 # Python Virtual PLC & RTU Simulator
 
-**Project Design Purpose**: The primary objective of this project is to develop a cross-platform Python library capable of simulating the core fundamental functionalities of two common industrial automation OT (Operational Technology ) devices: PLCs (Programmable Logic Controllers) and RTUs (Remote Terminal Units). With importing the library, the user can effectively construct simulator programs/applications running on different OS to effectively transform virtual machines, physical machines, BBB or Raspberry Pi into into virtual PLCs or RTUs.
+**Project Design Purpose**: The primary objective of this project is to develop a cross-platform Python library capable of simulating the core fundamental functionalities of two common industrial automation OT (Operational Technology ) devices: PLCs (Programmable Logic Controllers) and RTUs (Remote Terminal Units). With importing the library, the user can effectively construct simulator programs/applications running on different OS to effectively transform virtual machines, physical machines, BBB or Raspberry Pi into into virtual PLCs or RTUs with different OT Protocols.
 
-The PLC/RTU simulators are designed to receive and process requests from real HMI(Human-Machine Interface) systems via widely used OT device protocols such as Modbus-TCP and S7Comm, so they can be easily integrated in the real SCADA system. Subsequently, the PLC & RTU simulator also provide simulation of changes in electrical signals, feeding them into the virtual OT devices via TCP/UDP, or directly outputting electrical signals to physical OT devices using GPIO (General Purpose Input/Output) or Serial COM interfaces.
+The PLC/RTU simulators are designed to receive and process requests from real HMI(Human-Machine Interface) systems via widely used OT device protocols such as  `IEC 60870-5-104 (IEC104)`, `Modbus-TCP` and `S7Comm`, so they can be easily integrated in the real SCADA system. Subsequently, the PLC & RTU simulator also provide simulation of changes in electrical signals, feeding them into the virtual OT devices via TCP/UDP, or directly outputting electrical signals to physical OT devices using GPIO (General Purpose Input/Output) or Serial COM interfaces.
 
 The project consists of three primary components:
 
@@ -19,7 +19,8 @@ The system overview is shown below :
 We also provide the physical PLC communication module if you need to create a python program to connect to a real  Schneider M221PLC or  Siemens Simatic S7-1200 PLC.
 
 ```
-# version:     v0.1.3
+# Author:      Yuancheng Liu
+# version:     v_0.1.3
 # Created:     2024/02/21
 # Copyright:   Copyright (c) 2024 LiuYuancheng
 # License:     MIT License
