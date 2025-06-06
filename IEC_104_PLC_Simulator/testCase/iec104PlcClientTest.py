@@ -66,7 +66,7 @@ client.addPoint(STATION_ADDR, PT4_ADDR, pointType=C_STEP_TYPE)
 client.addPoint(STATION_ADDR, PT5_ADDR, pointType=M_FLOAT_TYPE)
 client.startConnection()
 
-for i in range(10):
+for i in range(10)
     print("Start client I/O test round %s" %str(i))
     random_bool1 = random.choice([True, False])
     random_bool2 = random.choice([True, False])
