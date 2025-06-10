@@ -137,7 +137,7 @@ class iec104Client(object):
         self.serverIP = serverIp
         self.serverPort = port
         self.client = c104.Client()
-        self.connection = self.client.add_connection(ip="127.0.0.1", port=2404, init=c104.Init.ALL)
+        self.connection = self.client.add_connection(ip=self.serverIP, port=self.serverPort, init=c104.Init.ALL)
         self.connection.on_unexpected_message(callable=self._unexpectedMsgHandler)
         self.stationAddrDict = OrderedDict()
         self.terminate = False
@@ -388,7 +388,7 @@ class iec104Server(object):
         self.server.start()
         while not self.terminate:
             if not self.server.has_active_connections:
-                print("INFO: Waiting for client connection.")
+                print("INFO: Waiting for IEC 104 client connection.")
                 time.sleep(1)
         print("Server stop.")
         self.server.stop()
