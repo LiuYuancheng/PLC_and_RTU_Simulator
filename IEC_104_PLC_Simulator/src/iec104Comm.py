@@ -12,7 +12,7 @@
 #
 # Created:     2025/04/27
 # Version:     v_0.0.4
-# Copyright:   Copyright (c) 2025 LiuYuancheng
+# Copyright:   Copyright (c) 2025 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
 """ Program Design:
@@ -235,8 +235,13 @@ class iec104Client(object):
         """
         point = self.getPoint(stationAddr, pointAddr)
         if point:
-            point.read()
-            return point.value
+            try:
+                point.read()
+                time.sleep(0.005) # wait 50ms for the server to response.
+            except Exception as err:
+                print(err)
+            val = point.value
+            return val
         return None
 
     def setServerPointStepValue(self, stationAddr, pointAddr, value):
