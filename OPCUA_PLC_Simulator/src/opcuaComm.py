@@ -32,7 +32,7 @@ OPCUA_DEF_PORT = 4840
 #-----------------------------------------------------------------------------
 
 class opcuaServer(object):
-    """ OPCUA server class, it will create a opcua server instance and 
+    """ OPCUA server class, it will create a opc-ua server instance and 
         register the opcua node tree.
         https://github.com/FreeOpcUa/opcua-asyncio/blob/master/examples/server-minimal.py
     """
