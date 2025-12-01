@@ -135,23 +135,29 @@ class opcuaClient(object):
         self.serverUrl = str(serverUrl)
         self.client = Client(self.serverUrl)
         
-    def connect(self):
-        self.client.connect()
+    async def connect(self):
+        await self.client.connect()
+        print("Client connected!")
 
-    def getVariableVal(self, namespace, objName, varName):
+    async def disconnect(self):
+        await self.client.disconnect()
+        print("Client disconnected!")
+
+    async def getVariableVal(self, namespace, objName, varName):
         """ Get the variable value from the opcua server instance.
         """
-        nsidx = '0' #await self.client.get_namespace_index(namespace)
-        var =  self.client.nodes.root.get_child("0:Objects/%s:%s/%s:%s" % (nsidx, objName, nsidx, varName))
-        value =  var.read_value()
+        root = self.client.get_root_node()
+        var = await root.get_child(["0:Objects", "2:%s" % objName, "2:%s" % varName])
+        value =  await var.read_value()
         return value
 
-    def setVariableVal(self, namespace, objName, varName, value):
+    async def setVariableVal(self, namespace, objName, varName, value):
         """ Set the variable value to the opcua server instance.
         """
-        nsidx =  self.client.get_namespace_index(namespace)
-        var =  self.client.nodes.root.get_child("0:Objects/%s:%s/%s:%s" % (nsidx, objName, nsidx, varName))
-        var.write_value(value)
+        root = self.client.get_root_node()
+        var = await root.get_child(["0:Objects", "2:%s" % objName, "2:%s" % varName])
+        #value =  await var.read_value()
+        await var.write_value(value)
 
 async def main():
     server = opcuaServer('testServer', 'newNameSpace01')
