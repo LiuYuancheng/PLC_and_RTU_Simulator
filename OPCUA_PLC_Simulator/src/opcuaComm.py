@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------
 # Name:        opcuaComm.py
 #
-# Purpose:     This module will provide the IEC62541 OPC-UA client and server 
+# Purpose:     This module will provide the IEC62541 OPC-UA TCP client and server 
 #              communication API to test or simulate the data flow connection 
 #              between PLC/RTU and SCADA system. The module is implemented based 
 #              on python opcua-asyncio lib module: 
@@ -10,22 +10,31 @@
 #
 # Author:      Yuancheng Liu
 #
-# Created:     2025/10/13
-# Version:     v_0.0.1
+# Created:     2025/11/28
+# Version:     v_0.0.2
 # Copyright:   Copyright (c) 2025 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+""" Program Design:
 
-import time 
+    We want to create a simple IEC-62541 channel (client + server) library module 
+    to simulate the data communication to PLC or RTU via opc-ua-tcp. For the 
+    server data storage 4 types of point data are provided:
+    1.  Unified Architecture bool 
+    2.  Unified Architecture int16
+    3.  Unified Architecture float
+    4.  Unified Architecture string
+
+    OPCUA-TCP: opc.tcp://localhost:4840/UADiscovery
+    OPCUA-Websockets: opc.wss://localhost:443/UADiscovery
+    OPCUA-HTTPS: https://localhost:443/UADiscovery
+    https://github.com/FreeOpcUa/opcua-asyncio/blob/master/examples/client-minimal.py
+
+"""
+
 import asyncio
-from asyncua import Server, ua
 from asyncua import Client
-from asyncua.common.methods import uamethod
-
-# OPCUA-TCP: opc.tcp://localhost:4840/UADiscovery
-# OPCUA-Websockets: opc.wss://localhost:443/UADiscovery
-# OPCUA-HTTPS: https://localhost:443/UADiscovery
-# https://github.com/FreeOpcUa/opcua-asyncio/blob/master/examples/client-minimal.py
+from asyncua import Server, ua
 
 OPCUA_DEF_PORT = 4840
 
@@ -80,39 +89,41 @@ class ladderLogic(object):
     
     #-----------------------------------------------------------------------------
     async def runLadderLogic(self):
-        """ Read the measured point value and changeable step value from the parent IEC104 server, 
-            and update the measured point value. 
-        """
-        # This function need to be overwritten. 
+        """ Asynchronous ladder logic algo execution function. This function need to be 
+            overwritten.
+        """ 
         return None 
     
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class opcuaServer(object):
-    """ OPCUA server class, it will create a opc-ua server instance and 
-        register the opcua node tree.
-        https://github.com/FreeOpcUa/opcua-asyncio/blob/master/examples/server-minimal.py
+    """ OPC-UA server class, it will create a opc-ua server instance and register 
+        the opcua nodes tree.
     """
     def __init__(self, serverName, nameSpace, port=OPCUA_DEF_PORT):
         self.serverName = str(serverName)
         self.serverPort = int(port)
+        # Name space dict, key: name space name, value: name space index
         self.nameSpaceDict = {str(nameSpace):0}
+        # Node Object dict, key: object name, value: object node obj
         self.objectDict = {}
+        # Variable dict, key: variable name, value: variable obj
         self.variableDict = {}
-        self.server = Server()
         self.endPointURL = "opc.tcp://0.0.0.0:%s/%s/server/" %(str(self.serverPort), self.serverName)
-        #self._initServer()
+        self.server = Server()
         self.terminated = False
-        
+
+    #-----------------------------------------------------------------------------   
     async def initServer(self):
-        """ Init the opcua server instance and register the opcua node tree.
-        """
+        """ Init the opcua server instance and register the name space."""
         await self.server.init()
         self.server.set_endpoint(self.endPointURL)
         nameSpaceStr = list(self.nameSpaceDict.keys())[0]
         idx = await self.server.register_namespace(nameSpaceStr)
         self.nameSpaceDict[nameSpaceStr] = idx
+        print("OPC-UA Server %s initialized, name space %s, index %s" %(self.serverName, nameSpaceStr, str(idx)))
 
+    #-----------------------------------------------------------------------------
     async def addNameSpace(self, nameSpace):
         """ Add a new namespace to the opcua server instance."""
         nameSpaceStr = str(nameSpace)
@@ -123,6 +134,7 @@ class opcuaServer(object):
         self.nameSpaceDict[nameSpaceStr] = idx
         return True
 
+    #-----------------------------------------------------------------------------
     async def addObject(self, nameSpace, objName):
         """ Add a new object to the opcua server instance."""
         nameSpaceStr = str(nameSpace)
@@ -139,6 +151,7 @@ class opcuaServer(object):
         self.objectDict[objNameStr] = newObj
         return True
 
+    #-----------------------------------------------------------------------------
     async def addVariable(self, idx, objName, varName, intValue):
         """ Add a new variable to the opcua server instance."""
         objNameStr = str(objName)
@@ -154,6 +167,7 @@ class opcuaServer(object):
         self.variableDict[varNameStr] = newVar
         return True
 
+    #-----------------------------------------------------------------------------
     def getEndPtUrl(self):
         return self.endPointURL
     
@@ -178,32 +192,28 @@ class opcuaServer(object):
         await self.variableDict[varNameStr].write_value(newValue)
         return True
 
+    #-----------------------------------------------------------------------------
     async def runServer(self, interval=0.2):
-        """ Run the opcua server instance.
-        """
+        """ Run the opcua server instance."""
         async with self.server:
             while not self.terminated:
                 await asyncio.sleep(interval)
-                #print("...")
 
     def stopServer(self):
-        """ Stop the opcua server instance.
-        """
+        """ Stop the opcua server instance."""
         self.terminated = True
 
-
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-
 class opcuaClient(object):
-    """ OPCUA client class, it will connect to a opc-ua server instance and 
-        register the opcua node tree.
-        https://github.com/FreeOpcUa/opcua-asyncio/blob/master/examples/server-minimal.py
+    """ OPCUA client class, it will connect to a opc-ua server to read and write
+        the variables data.
     """
     def __init__(self, serverUrl):
         self.serverUrl = str(serverUrl)
         self.client = Client(self.serverUrl)
-        
+
+    #----------------------------------------------------------------------------- 
     async def connect(self):
         await self.client.connect()
         print("Client connected!")
@@ -212,6 +222,10 @@ class opcuaClient(object):
         await self.client.disconnect()
         print("Client disconnected!")
 
+    def getServerUrl(self):
+        return self.serverUrl
+
+    #----------------------------------------------------------------------------- 
     async def getVariableVal(self, namespace, objName, varName):
         """ Get the variable value from the opcua server instance.
         """
@@ -220,14 +234,16 @@ class opcuaClient(object):
         value =  await var.read_value()
         return value
 
+    #----------------------------------------------------------------------------- 
     async def setVariableVal(self, namespace, objName, varName, value):
         """ Set the variable value to the opcua server instance.
         """
         root = self.client.get_root_node()
         var = await root.get_child(["0:Objects", "2:%s" % objName, "2:%s" % varName])
-        #value =  await var.read_value()
         await var.write_value(value)
 
+#----------------------------------------------------------------------------- 
+#----------------------------------------------------------------------------- 
 async def main():
     server = opcuaServer('testServer', 'newNameSpace01')
     await server.initServer()
@@ -236,55 +252,4 @@ async def main():
     await server.runServer()
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
-
-
-# import asyncio
-# import logging
-
-# from asyncua import Server, ua
-# from asyncua.common.methods import uamethod
-
-
-# @uamethod
-# def func(parent, value):
-#     return value * 2
-
-
-# async def main():
-#     _logger = logging.getLogger(__name__)
-#     # setup our server
-#     server = Server()
-#     await server.init()
-#     server.set_endpoint("")
-
-#     # set up our own namespace, not really necessary but should as spec
-#     uri = "http://examples.freeopcua.github.io"
-#     idx = await server.register_namespace(uri)
-
-#     # populating our address space
-#     # server.nodes, contains links to very common nodes like objects and root
-#     myobj = await server.nodes.objects.add_object(idx, "MyObject")
-#     myvar = await myobj.add_variable(idx, "MyVariable", 6.7)
-#     # Set MyVariable to be writable by clients
-#     await myvar.set_writable()
-#     await server.nodes.objects.add_method(
-#         ua.NodeId("ServerMethod", idx),
-#         ua.QualifiedName("ServerMethod", idx),
-#         func,
-#         [ua.VariantType.Int64],
-#         [ua.VariantType.Int64],
-#     )
-#     _logger.info("Starting server!")
-#     async with server:
-#         while True:
-#             await asyncio.sleep(1)
-#             new_val = await myvar.get_value() + 0.1
-#             _logger.info("Set value of %s to %.1f", myvar, new_val)
-#             await myvar.write_value(new_val)
-
-
-# if __name__ == "__main__":
-#     logging.basicConfig(level=logging.DEBUG)
-#     asyncio.run(main(), debug=True)
-
+    asyncio.run(main())
