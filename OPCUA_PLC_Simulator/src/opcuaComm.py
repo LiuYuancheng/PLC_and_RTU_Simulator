@@ -29,6 +29,11 @@ from asyncua.common.methods import uamethod
 
 OPCUA_DEF_PORT = 4840
 
+UA_TYPE_BOOL = ua.VariantType.Boolean
+UA_TYPE_INT16 = ua.VariantType.Int16
+UA_TYPE_FLOAT = ua.VariantType.Float
+UA_TYPE_STRING = ua.VariantType.String
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class ladderLogic(object):
@@ -74,7 +79,7 @@ class ladderLogic(object):
         return self.destPointTypeList
     
     #-----------------------------------------------------------------------------
-    def runLadderLogic(self):
+    async def runLadderLogic(self):
         """ Read the measured point value and changeable step value from the parent IEC104 server, 
             and update the measured point value. 
         """
@@ -179,7 +184,7 @@ class opcuaServer(object):
         async with self.server:
             while not self.terminated:
                 await asyncio.sleep(interval)
-                print("...")
+                #print("...")
 
     def stopServer(self):
         """ Stop the opcua server instance.
