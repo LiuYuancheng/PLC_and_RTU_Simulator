@@ -31,7 +31,58 @@ OPCUA_DEF_PORT = 4840
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
+class ladderLogic(object):
+    """ The PLC/RTU ladder logic class, this class will be inherited by your ladder diagram,
+        and you need to implement initLadderInfo() and runLadderLogic() function.
+    """
+    def __init__(self, parent, ladderName='TestLadderDiagram'):
+        """ To create a simple ladder example, please refer to file <testCase/iec104PlcServerTest.py>
+            Args:
+                parent (iec104Server): parent need to be a iec104 server obj
+                ladderName (str, optional): _description_. Defaults to 'TestLadderDiagram'.
+        """
+        self.parent = parent # the parent need to be a iec104 server obj
+        self.ladderName = ladderName
+        self.srcVarIDList = []
+        self.srcVarTypeList = []
+        self.destVarIDList = []
+        self.destVarTypeList = []
+        self.initLadderInfo()
 
+    def initLadderInfo(self):
+        """ Init the ladder register, src and dest coils information, this function will 
+            be called during the logic init. Please over write this function.
+        """
+        # This function need to be overwritten. 
+        return None
+
+    #-----------------------------------------------------------------------------
+    # define all the get and set functions.
+    def getLadderName(self):
+        return self.ladderName
+    
+    def getSrcVarIDList(self):
+        return self.srcPointAddrList
+
+    def getSrcVarTypeList(self):
+        return self.srcPointTypeList
+
+    def getDestVarIDList(self):
+        return self.destPointAddrList
+    
+    def getDestVarTypeList(self):
+        return self.destPointTypeList
+    
+    #-----------------------------------------------------------------------------
+    def runLadderLogic(self):
+        """ Read the measured point value and changeable step value from the parent IEC104 server, 
+            and update the measured point value. 
+        """
+        # This function need to be overwritten. 
+        return None 
+    
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 class opcuaServer(object):
     """ OPCUA server class, it will create a opc-ua server instance and 
         register the opcua node tree.
@@ -58,13 +109,45 @@ class opcuaServer(object):
         self.nameSpaceDict[nameSpaceStr] = idx
 
     async def addNameSpace(self, nameSpace):
-        """ Add a new namespace to the opcua server instance.
-        """
+        """ Add a new namespace to the opcua server instance."""
         nameSpaceStr = str(nameSpace)
         if nameSpaceStr in self.nameSpaceDict.keys():
-            return None
+            print("Warning: addNameSpace() Namespace %s already exists!" %nameSpace)
+            return False
         idx = await self.server.register_namespace(nameSpaceStr)
         self.nameSpaceDict[nameSpaceStr] = idx
+        return True
+
+    async def addObject(self, nameSpace, objName):
+        """ Add a new object to the opcua server instance."""
+        nameSpaceStr = str(nameSpace)
+        objNameStr = str(objName)
+        if nameSpaceStr not in self.nameSpaceDict.keys():
+            print("Warning: addObject() Target Namespace %s not exists!" %nameSpace)
+            return False
+        idx = self.nameSpaceDict[nameSpaceStr]
+        if objNameStr in self.objectDict.keys():
+            print("Warning: addObject() Object %s already exists!" %objName)
+            return False
+        objects_node = self.server.get_objects_node()
+        newObj  = await objects_node.add_object(idx, objNameStr)
+        self.objectDict[objNameStr] = newObj
+        return True
+
+    async def addVariable(self, idx, objName, varName, intValue):
+        """ Add a new variable to the opcua server instance."""
+        objNameStr = str(objName)
+        varNameStr = str(varName)
+        if objNameStr not in self.objectDict.keys():
+            print("Warning: addVariable() Target Object %s not exists!" %objName)
+            return False
+        if varNameStr in self.variableDict.keys():
+            print("Warning: addVariable() Variable %s already exists!" %varName)
+            return False
+        newVar = await self.objectDict[objNameStr].add_variable(idx, varNameStr, intValue)
+        await newVar.set_writable()
+        self.variableDict[varNameStr] = newVar
+        return True
 
     def getEndPtUrl(self):
         return self.endPointURL
@@ -74,31 +157,12 @@ class opcuaServer(object):
             return self.nameSpaceDict[nameSpace]
         return None
 
-    async def addObject(self, nameSpace, objName):
-        """ Add a new object to the opcua server instance.
-        """
-        nameSpaceStr = str(nameSpace)
-        objNameStr = str(objName)
-        if nameSpaceStr not in self.nameSpaceDict.keys():
-            return None
-        idx = self.nameSpaceDict[nameSpaceStr]
-        objects_node = self.server.get_objects_node()
-
-
-        newObj  = await objects_node.add_object(idx, objNameStr)
-        self.objectDict[objNameStr] = newObj
-        return True
-
-    async def addVariable(self, idx, objName, varName, intValue):
-        """ Add a new variable to the opcua server instance.
-        """
-        objNameStr = str(objName)
-        varNameStr = str(varName)
-        if objNameStr not in self.objectDict.keys():
-            return None
-        newVar = await self.objectDict[objNameStr].add_variable(idx, varNameStr, intValue)
-        await newVar.set_writable()
-        return newVar
+    async def getVariableVal(self, varName):
+        varName = str(varName)
+        if varName in self.variableDict.keys():
+            return await self.variableDict[varName].get_value()
+        print("Error: varName %s not found!" %varName)
+        return None
 
     async def updateVariable(self, varName, newValue):
         """ Update the variable value in the opcua server instance.
@@ -109,12 +173,12 @@ class opcuaServer(object):
         await self.variableDict[varNameStr].write_value(newValue)
         return True
 
-    async def runServer(self):
+    async def runServer(self, interval=0.2):
         """ Run the opcua server instance.
         """
         async with self.server:
             while not self.terminated:
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(interval)
                 print("...")
 
     def stopServer(self):
