@@ -38,8 +38,6 @@ def showTestResult(expectVal, val, message):
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-
-
 class testLadder(opcuaComm.ladderLogic):
 
     def __init__(self, parent):
@@ -74,8 +72,6 @@ class testLadder(opcuaComm.ladderLogic):
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-
-
 class opcuaServerThread(threading.Thread):
     """ OPC-UA server thread class for host the PLC or RTU data and provide to clients."""
 
