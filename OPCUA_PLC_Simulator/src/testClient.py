@@ -4,7 +4,7 @@ from asyncua import Client
 
 
 async def main():
-    client = Client("opc.tcp://localhost:4840/testServer/server/")
+    client = Client("opc.tcp://localhost:4840/asyncua/server/")
     await client.connect()
 
     print("Client connected!")
@@ -13,7 +13,7 @@ async def main():
     root = client.get_root_node()
     
     # Path to our object → "Objects" → "AsyncDevice" → "Temperature"
-    temp_var = await root.get_child(["0:Objects", "2:newObject01", "2:newVariable01"])
+    temp_var = await root.get_child(["0:Objects", "2:AsyncDevice", "2:Temperature"])
 
     try:
         while True:
