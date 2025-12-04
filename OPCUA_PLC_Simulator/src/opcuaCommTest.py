@@ -122,8 +122,7 @@ async def main():
     time.sleep(1)
 
     print("[_] Test client connection")
-    serverName = 'TestPlc01'
-    serverUrl = "opc.tcp://localhost:4840/%s/server/" % serverName
+    serverUrl = "opc.tcp://localhost:4840/%s/server/" % SERVER_NAME
     client = opcuaComm.opcuaClient(serverUrl)
     await client.connect()
     r1 = await client.getVariableVal(NAME_SPACE, OBJ_NAME, VAR_ID1)

@@ -22,7 +22,6 @@ import random
 import asyncio
 import threading
 
-
 print("Current working directory is : %s" % os.getcwd())
 DIR_PATH = dirpath = os.path.dirname(os.path.abspath(__file__))
 print("Current source code location : [%s]" % dirpath)
@@ -60,6 +59,9 @@ VAR_ID2 = 'Temperature_var2'
 VAR_ID3 = 'compare_bool_var'
 VAR_ID4 = 'combine_message'
 
+SRC_OW_MD = 'Src_overwrite_mode'
+DST_OW_MD = 'Dst_overwrite_mode'
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class testLadder(opcuaComm.ladderLogic):
@@ -79,8 +81,6 @@ class testLadder(opcuaComm.ladderLogic):
         self.destVarIDList.append(VAR_ID4)
         self.destVarTypeList.append(UA_TYPE_STRING)
 
-#-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
     async def runLadderLogic(self):
         print("Execute the ladder logic: compare 2 temperature value.")
         val1 = await self.parent.getVariableVal(VAR_ID1)
@@ -90,6 +90,8 @@ class testLadder(opcuaComm.ladderLogic):
         val4 = "Temp1=%sC, Temp2=%sC" %(str(val1), str(val2))
         await self.parent.updateVariable(VAR_ID4, val4)
 
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 class opcuaServerThread(threading.Thread):
     """ OPC-UA server thread class for host the PLC or RTU data and provide to clients."""
 
@@ -105,7 +107,12 @@ class opcuaServerThread(threading.Thread):
         showTestResult(False, await self.server.addObject(NAME_SPACE, OBJ_NAME),
                        "Add an exists object")
         # Add the value
+
         idx = self.server.getNameSpaceIdx(NAME_SPACE)
+        # Added the overwrite mode variables
+        m1 = await self.server.addVariable(idx, OBJ_NAME, SRC_OW_MD, False)
+        m2 = await self.server.addVariable(idx, OBJ_NAME, DST_OW_MD, False)
+        # Add the data storage variables
         r1 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID1, 1)
         showTestResult(True, r1, "Add new int variable")
         r2 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID2, 1.1)
@@ -128,19 +135,81 @@ class opcuaServerThread(threading.Thread):
     def stop(self):
         self.server.stopServer()
 
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 class plcSimulator(object):
     """ PLC simulator class for test the ladder logic."""
     def __init__(self):
-        self.opctuServerTh = opcuaServerThread(4840)
-        self.ladderLogic = testLadder(self.opctuServerTh)
-    
+        self.opcuaServerTh = opcuaServerThread(4840)
+        self.ladderLogic = None 
         self.srcVariableDict = {
             VAR_ID1: 10, 
+            VAR_ID2: 20.0
         }
+        self.destVariableDict = {
+            VAR_ID3: False,
+            VAR_ID4: 'Information_String'
+        }
+        self.terminate = False 
 
+    def runLadderLogic(self):
+        print("Run the physcial ladder logic")
+        compareRst = self.srcVariableDict[VAR_ID1] >= self.srcVariableDict[VAR_ID2]
+        self.destVariableDict[VAR_ID3] = compareRst
+        self.destVariableDict[VAR_ID4] = "Temp1=%sC, Temp2=%sC" %(str(self.srcVariableDict[VAR_ID1]), str(self.srcVariableDict[VAR_ID2]))
 
+    def fetchDataFromPhysicalWorld(self):
+        print("Fetch data from physical world.")
+        self.srcVariableDict[VAR_ID1] = random.randint(0, 100)
+        self.srcVariableDict[VAR_ID2] = random.uniform(0, 100)
 
+    async def run(self):
+        await self.opcuaServerTh.initDataStorage()
+        self.ladderLogic = testLadder(self.opcuaServerTh.getServer())
+        self.opcuaServerTh.start()
+        time.sleep(1)
+        while not self.terminate:
+            # simulate fetch real world simulator's components data
+            self.fetchDataFromPhysicalWorld()
+            srcOwMd = await self.opcuaServerTh.getServer().getVariableVal(SRC_OW_MD)
+            if srcOwMd:
+                val1 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID1)
+                val2 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID2)
+                if val1 != self.srcVariableDict[VAR_ID1] or val2 != self.srcVariableDict[VAR_ID2]:
+                    print("Source variable value updated.")
+                    self.srcVariableDict[VAR_ID1] = val1
+                    self.srcVariableDict[VAR_ID2] = val2
+            else:
+                await self.opcuaServerTh.getServer().updateVariable(VAR_ID1, self.srcVariableDict[VAR_ID1])
+                await self.opcuaServerTh.getServer().updateVariable(VAR_ID2, self.srcVariableDict[VAR_ID2])
+            
+            time.sleep(0.1)
+            self.runLadderLogic()
+            time.sleep(0.1)    
+            
+            destOwMd = await self.opcuaServerTh.getServer().getVariableVal(DST_OW_MD)
+            if destOwMd:
+                val3 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID3)
+                val4 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID4)
+                if val3 != self.destVariableDict[VAR_ID3] or val4 != self.destVariableDict[VAR_ID4]:
+                    print("Destination variable value updated.")
+                    self.destVariableDict[VAR_ID3] = val3
+                    self.destVariableDict[VAR_ID4] = val4
+            else:
+                await self.opcuaServerTh.getServer().updateVariable(VAR_ID3, self.destVariableDict[VAR_ID3])
+                await self.opcuaServerTh.getServer().updateVariable(VAR_ID4, self.destVariableDict[VAR_ID4])
+            # simulate set real world simulator's components data
+            print("Current internal coil data status:")
+            print(str(self.destVariableDict))
+            time.sleep(0.5)
+        print("PLC simulator thread exit.")
 
+    def stop(self):
+        self.terminate = True
+        self.opcuaServerTh.stop()
 
-    def run(self):
-        asyncio.run(self.ladder.runLadderLogic())
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+if __name__ == "__main__":
+    plcObj = plcSimulator()
+    asyncio.run(plcObj.run())
