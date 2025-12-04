@@ -1,4 +1,4 @@
-echo "Running test case program [opcuaCommTest.py] under python vEnv3.8"
+echo "Running test case program [opcuaPlcClientTest.py] under python vEnv3.8"
 @echo off
 call workon vEnv3.8
 

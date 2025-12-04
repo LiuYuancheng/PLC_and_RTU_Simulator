@@ -10,7 +10,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2025/11/30
-# Version:     v_0.0.2
+# Version:     v_0.0.3
 # Copyright:   Copyright (c) 2025 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -21,15 +21,12 @@ import threading
 import opcuaComm
 
 SERVER_NAME = 'TestPlc01'
-
 NAME_SPACE = 'newNameSpace01'
 OBJ_NAME = 'newObject01'
-
 VAR_ID1 = 'variable01'
 VAR_ID2 = 'variable02'
 VAR_ID3 = 'variable03'
 VAR_ID4 = 'variable04'
-
 
 def showTestResult(expectVal, val, message):
     rst = "[o] %s pass." % message if val == expectVal else "[x] %s error, expect:%s, get: %s." % (
@@ -53,27 +50,26 @@ class testLadder(opcuaComm.ladderLogic):
         self.expectVal3 = val3
         self.expectVal4 = val4
 
+    #-----------------------------------------------------------------------------
     async def runLadderLogic(self):
-        print("Test server value read functions in test ladder class.")
+        print("Test server value read functions in test ladder logic module.")
         val1 = await self.parent.getVariableVal(VAR_ID1)
-        showTestResult(self.expectVal1, val1,
-                       "ladder logic function verify new set int value")
+        showTestResult(self.expectVal1, val1, "ladder logic function verify new set int value")
         val2 = await self.parent.getVariableVal(VAR_ID2)
-        showTestResult(self.expectVal2, val2,
-                       "ladder logic function  verify new set float value")
+        showTestResult(self.expectVal2, val2, "ladder logic function verify new set float value")
         val3 = await self.parent.getVariableVal(VAR_ID3)
-        showTestResult(self.expectVal3, val3,
-                       "ladder logic function verify new set bool value")
+        showTestResult(self.expectVal3, val3, "ladder logic function verify new set bool value")
         val = str(val1 + val2)
         await self.parent.updateVariable(VAR_ID4, val)
         await self.parent.getVariableVal(VAR_ID4)
-        showTestResult(self.expectVal4, val,
-                       "ladder logic function verify ladder logic execution")
+        showTestResult(self.expectVal4, val, "ladder logic function verify ladder logic execution")
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class opcuaServerThread(threading.Thread):
-    """ OPC-UA server thread class for host the PLC or RTU data and provide to clients."""
+    """ OPC-UA server thread class for hosting the PLC or RTU data and provide 
+        to the connected clients.
+    """
 
     def __init__(self, port):
         threading.Thread.__init__(self)
@@ -84,9 +80,8 @@ class opcuaServerThread(threading.Thread):
         await self.server.initServer()
         r0 = await self.server.addObject(NAME_SPACE, OBJ_NAME)
         showTestResult(True, r0, "Add new object")
-        showTestResult(False, await self.server.addObject(NAME_SPACE, OBJ_NAME),
-                       "Add an exists object")
-        # Add the value
+        showTestResult(False, await self.server.addObject(NAME_SPACE, OBJ_NAME), "Add an exists object")
+        # Add the test value.
         idx = self.server.getNameSpaceIdx(NAME_SPACE)
         r1 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID1, 1)
         showTestResult(True, r1, "Add new int variable")
@@ -133,6 +128,7 @@ async def main():
     showTestResult(True, r3, "client read float value1")
     r4 = await client.getVariableVal(NAME_SPACE, OBJ_NAME, VAR_ID4)
     showTestResult('testStr', r4, "client read float value1")
+    time.sleep(1)
 
     print("[_] Test client write value")
     await client.setVariableVal(NAME_SPACE, OBJ_NAME, VAR_ID1, 2)
@@ -144,10 +140,13 @@ async def main():
     showTestResult(2.3, r2, "client write int value1")
     r3 = await client.getVariableVal(NAME_SPACE, OBJ_NAME, VAR_ID3)
     showTestResult(False, r3, "client write int value1")
+    time.sleep(1)
 
     print("[_] Test ladder logic execution")
     ladderLogic.setExpectVal(2, 2.3, False, '4.3')
     await ladderLogic.runLadderLogic()
+    time.sleep(1)
+
     await client.disconnect()
     serverThread.stop()
 
