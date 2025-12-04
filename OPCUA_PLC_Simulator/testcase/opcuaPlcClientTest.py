@@ -95,10 +95,8 @@ class opcuaClientThread(threading.Thread):
     async def fetchPlcDataLoop(self):
         print("Start opcua client thread...")
         await self.client.connect()
-        time.sleep(0.5)
         while not self.terminate:
             print("Fetch data from PLC")
-
             val1 = await self.client.getVariableVal(NAME_SPACE, OBJ_NAME, VAR_ID1)
             val2 = await self.client.getVariableVal(NAME_SPACE, OBJ_NAME, VAR_ID2)
             self.srcVariableDict = {
@@ -139,9 +137,12 @@ class PlcConnector(object):
         self.terminate = False
 
     async def run(self):
+        # Set auto modo first
+        time.sleep(2)
+        #await self.opcUAClientTh.setPlcData(SRC_OW_MD, False)
+        #await self.opcUAClientTh.setPlcData(SRC_OW_MD, False)
         
-        #await self.opcUAClientTh.run()
-        await asyncio.sleep(2)
+        
         print("[_] verify PLC auto ladder logic execution.")
         srcDataDict = self.opcUAClientTh.getSourceVariableDict()
         expectVal3 = srcDataDict[VAR_ID1] > srcDataDict[VAR_ID2]
@@ -156,16 +157,27 @@ class PlcConnector(object):
         expectVal2 = 10.5
         expectVal3 = True
         expectVal4 = "Temp1=20C, Temp2=10.5C"
-        
+        print("Change the mode to manual mode")
         await self.opcUAClientTh.setPlcData(SRC_OW_MD, True)
+        print("Change the value to 20 and 10.5")
         await self.opcUAClientTh.setPlcData(VAR_ID1, expectVal1)
         await self.opcUAClientTh.setPlcData(VAR_ID2, expectVal2)
-        time.sleep(1)
         srcDataDict = self.opcUAClientTh.getSourceVariableDict()
         showTestResult(expectVal1, srcDataDict[VAR_ID1], "temp value1")
         showTestResult(expectVal2, srcDataDict[VAR_ID2], "temp value2")
         destDataDict = self.opcUAClientTh.getDestVariableDict()
         showTestResult(expectVal3, destDataDict[VAR_ID3], "Compare bool value")
+        showTestResult(expectVal4, destDataDict[VAR_ID4], "Combine message")
+        time.sleep(1)
+
+        print("[_] verify PLC dest manual mode data overwrite ladder logic execution.")
+        await self.opcUAClientTh.setPlcData(DST_OW_MD, True)
+        random_bool1 = random.choice([True, False])
+        expectVal4 = "Overwrite message from manual mode"
+        await self.opcUAClientTh.setPlcData(VAR_ID3, random_bool1)
+        await self.opcUAClientTh.setPlcData(VAR_ID4, expectVal4)
+        destDataDict = self.opcUAClientTh.getDestVariableDict()
+        showTestResult(random_bool1, destDataDict[VAR_ID3], "Compare bool value")
         showTestResult(expectVal4, destDataDict[VAR_ID4], "Combine message")
 
         await self.opcUAClientTh.stop()
