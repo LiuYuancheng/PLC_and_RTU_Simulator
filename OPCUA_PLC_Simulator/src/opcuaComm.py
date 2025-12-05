@@ -28,9 +28,10 @@
 
     The structure of the data storage is as follows:
     Server Name
-        |__ Namespace
-                |__ Object
-                        |__ Variable = value
+        |
+        DataStorage-> Namespace
+                        |__ Object
+                                |__ Variable = value
 
     OPCUA-TCP: opc.tcp://localhost:4840/UADiscovery
     OPCUA-Websockets: opc.wss://localhost:443/UADiscovery
