@@ -49,8 +49,8 @@ The simulator allows users to construct and test control architectures that mirr
 
 The OPC-UA nodes' communication follows a host–connector model:
 
-- Lower-level OT components (PLCs, RTUs, field controllers) **host** their data through an embedded OPC-UA-TCP **server** module.
-- Higher-level components (HMI, SCADA, historian, database server) integrate an OPC-UA-TCP **client** module to **browse**, **read**, **write**, or **subscribe** to the data exposed by lower-level devices.
+- Lower-level OT components (PLCs, RTUs, field controllers) host their data through an embedded OPC-UA-TCP server module.
+- Higher-level components (HMI, SCADA, historian, database server) integrate an OPC-UA-TCP client module to browse, read, write, or subscribe to the data exposed by lower-level devices.
 
 This layered approach allows users to easily construct realistic OT communication topologies and observe OPC-UA information flow across different operational zones.
 
@@ -60,7 +60,7 @@ This layered approach allows users to easily construct realistic OT communicatio
 
 ### OPC UA Protocol Background Knowledge
 
-This section will do a short background knowledge introduction of the OPC UA protocol under network level, Unlike older OT protocols (Modbus, DNP3, S7Comm), OPC UA provides:
+In this section I will summarize the basic background knowledge introduction of the OPC UA protocol under network level which I used to develop the OPC-UA-TCP Comm Module in the virtual PLC simulator project. Unlike older OT protocols (Modbus, DNP3, S7Comm), OPC UA provides:
 
 - A service-oriented architecture (SOA)
 - A rich information modeling framework
@@ -171,4 +171,14 @@ OPC UA organizes its storage data in an address space, the core elements include
 
 
 ------
+
+### Design of The Virtual PLC
+
+In this section, I will use the simulated Automatic Dependent Surveillance–Broadcast (ADS-B) system's ground station control PLC with the tower HMI design in the  [**Mini OT Aviation CAT-II Airport Runway Lights Management Simulation System** ](https://www.linkedin.com/pulse/aviation-runway-lights-management-simulation-system-yuancheng-liu-5rzhc)  as a example to show the detailed implementation of the PLC/RTU Simulator Framework.
+
+The system architecture is divided into three main components as illustrated in the system workflow diagram:
+
+![](doc/img/s_08.png)
+
+
 
