@@ -309,3 +309,140 @@ This design ensures consistent, deterministic behavior while still allowing engi
 
 ------
 
+### Use Case Example
+
+This section provides a practical walkthrough of how to build a simplified OPC-UA–based PLC simulator using the provided Python modules. The simulator demonstrates how OPC-UA variables, ladder logic, and manual mode overrides can be combined to emulate basic PLC behavior for OT/SCADA testing.
+
+The following Python modules can be used as a baseline to run and extend the OPC-UA PLC simulator:
+
+| Program File                     | Execution Env | Description                                                  |
+| -------------------------------- | ------------- | ------------------------------------------------------------ |
+| `src/opcuaComm.py`               | python 3.8+   | Core library implementing IEC 62541 OPC-UA TCP client/server APIs used to simulate data and command interactions between PLC/RTU and SCADA software. |
+| `src/opcuaCommTest.py`           | python 3.8+   | A testcase module for `<opcuaComm.py>`. It launches a server in a background thread, creates a client, and tests variable read/write operations and ladder logic execution. |
+| `testcase/opcuaPlcClientTest.py` | python 3.8+   | This module is a simple PLC connector program use the OPC-UA lib  module `<opcuaComm.py>` to simulate a SCADA device with one OPC-UA-TCP client to connect to the `<opcuaPlcServerTest.py>` to random setup the source variables value then verify the result. |
+| `testcase/opcuaPlcServerTest.py` | python 3.8+   | This module is a simple PLC simulation program use the OPC-UA lib module `<opcuaComm.py>` to simulate a PLC with one OPC-UA-TCP server and one ladder logic to handle variable read and changeable value set from client side. |
+
+#### One-Rung Ladder Example in the OPC-UA PLC Simulator
+
+This example demonstrates how to build a minimal PLC simulator with one ladder-logic rung. The rung takes two temperature inputs, compares them, and generates a boolean output and a formatted message string. The rung logic is illustrated below:
+
+![](doc/img/s_10.png)
+
+| Variable Name          | UA Data Type             | Ladder I/O Type | Variable Description                         |
+| ---------------------- | ------------------------ | --------------- | -------------------------------------------- |
+| **Temperature_var1**   | `ua.VariantType.Int16`   | Input           | Input temperature value 1                    |
+| **Temperature_var2**   | `ua.VariantType.Float`   | Input           | Input temperature value 2                    |
+| **compare_bool_var**   | `ua.VariantType.Boolean` | Output          | Comparison result (Temp1 ≥ Temp2)            |
+| **combine_message**    | `ua.VariantType.String`  | Output          | Formatted message: `"Temp1=%sC, Temp2=%sC"`  |
+| **Src_overwrite_mode** | `ua.VariantType.Boolean` | N.A             | Ladder input source manual-mode toggle       |
+| **Dst_overwrite_mode** | `ua.VariantType.Boolean` | N.A             | Ladder output destination manual-mode toggle |
+
+**PLC Initialization**
+
+In the PLC simulator (`opcuaPlcServerTest.py`), these variables are registered with the OPC-UA server:
+
+```python
+SERVER_NAME = 'TestPlc01'
+NAME_SPACE = 'newNameSpace01'
+OBJ_NAME = 'newObject01'
+VAR_ID1 = 'Temperature_var1'
+VAR_ID2 = 'Temperature_var2'
+VAR_ID3 = 'compare_bool_var'
+VAR_ID4 = 'combine_message'
+SRC_OW_MD = 'Src_overwrite_mode'
+DST_OW_MD = 'Dst_overwrite_mode'
+...
+# Added the overwrite mode variables
+m1 = await self.server.addVariable(idx, OBJ_NAME, SRC_OW_MD, False)
+m2 = await self.server.addVariable(idx, OBJ_NAME, DST_OW_MD, False)
+# Add the data storage variables
+r1 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID1, 1)
+r2 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID2, 1.1)
+r3 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID3, True)
+r4 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID4, 'testStr')
+```
+
+**Ladder Logic Execution**
+
+The ladder logic is executed periodically in the server’s main loop. The logic compares two temperatures and generates the boolean and string outputs:
+
+```python
+def runLadderLogic(self):
+    print("Run the physical ladder logic")
+    compareRst = self.srcVariableDict[VAR_ID1] >= self.srcVariableDict[VAR_ID2]
+
+    self.destVariableDict[VAR_ID3] = compareRst
+    self.destVariableDict[VAR_ID4] = "Temp1=%sC, Temp2=%sC" % (
+        str(self.srcVariableDict[VAR_ID1]),
+        str(self.srcVariableDict[VAR_ID2])
+    )
+```
+
+For multiple rungs ladder, put the high priority rung run in the end and low priority rung and the beginning, so the high priority rung execution result will overwrite the low priority one.
+
+**Manual Mode – Source Variable Handling**
+
+Configure the PLC ladder logic Inputs manual mode data flow with the below code example: 
+
+```python
+srcOwMd = await self.opcuaServerTh.getServer().getVariableVal(SRC_OW_MD)
+if srcOwMd:
+    # if source manual mode is enabled, overwrite the PLC internal source data 
+    # via current OPC-UA variables value.
+    val1 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID1)
+    val2 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID2)
+    if val1 != self.srcVariableDict[VAR_ID1] or val2 != self.srcVariableDict[VAR_ID2]:
+    print("Source variable value updated.")
+    self.srcVariableDict[VAR_ID1] = val1
+    self.srcVariableDict[VAR_ID2] = val2
+else:
+    await self.opcuaServerTh.getServer().updateVariable(VAR_ID1, self.srcVariableDict[VAR_ID1])
+    await self.opcuaServerTh.getServer().updateVariable(VAR_ID2, self.srcVariableDict[VAR_ID2])
+```
+
+**Manual Mode – Destination Variable Handling**
+
+Configure the PLC ladder logic output manual mode data flow with the below code example:
+
+```python
+destOwMd = await self.opcuaServerTh.getServer().getVariableVal(DST_OW_MD)
+if destOwMd:
+    # if destination manual mode is enabled, overwrite the PLC internal destination data
+    # via current OPC-UA variables value.
+    val3 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID3)
+    val4 = await self.opcuaServerTh.getServer().getVariableVal(VAR_ID4)
+    if val3 != self.destVariableDict[VAR_ID3] or val4 != self.destVariableDict[VAR_ID4]:
+    print("Destination variable value updated.")
+    self.destVariableDict[VAR_ID3] = val3
+    self.destVariableDict[VAR_ID4] = val4
+else:
+    await self.opcuaServerTh.getServer().updateVariable(VAR_ID3, self.destVariableDict[VAR_ID3])
+    await self.opcuaServerTh.getServer().updateVariable(VAR_ID4, self.destVariableDict[VAR_ID4])
+```
+
+**HMI/Client Interaction**
+
+For the HMI side fetch and set data, please refer to the data client test module: https://github.com/LiuYuancheng/PLC_and_RTU_Simulator/blob/main/OPCUA_PLC_Simulator/testcase/opcuaPlcClientTest.py, the client script also provide the function:
+
+- Randomly updates input temperature values
+- Enables/disables manual mode
+- Reads PLC output values
+- Verifies logic correctness
+
+
+
+------
+
+### Conclusion
+
+In conclusion, this project successfully extends the virtual PLC/RTU simulator by implementing the IEC 62541 OPC-UA-TCP communication protocol, creating a modern and secure platform for simulating industrial control systems. Through its modular design—integrating an OPC-UA communication layer, a core PLC simulation framework, and a ladder logic execution engine—the simulator provides a functional and educational environment for testing, prototyping, and studying OT/SCADA interactions. By supporting both automated logic and manual overrides via OPC-UA, it offers a versatile tool for developers, researchers, and cybersecurity professionals to model, analyze, and validate industrial automation architectures in a risk-free setting. For the virtual PLC with other OT protocol such as Modbus-TCP, Siemens-S7Comm and IEC 60870-5-104, you can refer to below article or link: 
+
+- https://www.linkedin.com/pulse/python-virtual-plc-simulator-iec-60870-5-104-protocol-yuancheng-liu-bov7c
+- https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc
+- https://github.com/LiuYuancheng/PLC_and_RTU_Simulator
+
+
+
+------
+
+> last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 08/04/2024 if you have any problem, please send me a message. 
