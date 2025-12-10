@@ -197,7 +197,7 @@ The Communication Module acts as the virtual PLC’s external interface to the s
 - The Incoming UDP ACARS message channel transfer physical world simulator's ACARS data into the virtual PLC's input hash table to simulate the PLC read real real time ADS-B information from different airport sensors/radar/antenna. 
 - The Outgoing ACARS packets are send the processed ACARS message saved in PLC's output hash table and delivered back to the simulated ADS-B ground station broadcast antenna for the airplane to use.
 
-The UDP-Based  Aircraft Communications Addressing and Reporting System (ACARS) challenge can also be replaced by other customized python interface module to simulate the electrical signal or connect to real GPIO of physical device.
+The UDP-Based  Aircraft Communications Addressing and Reporting System (ACARS) challenge can also be replaced by other customized python interface module to simulate the electrical signal or connect to real GPIO of physical device. Each communication module is running is a sub-thread.
 
 #### PLC Functional Module
 
@@ -207,6 +207,8 @@ Represented in the light green section of the diagram, the OPC-UA PLC Function F
 - The hash table is passed into the Ladder Logic Execution Engine, where user-defined control logic is evaluated.
 - After logic execution, the computed results are written into the PLC Output Hash Table.
 - These output values are then forwarded to the physical world simulator through UDP and The SCADA/HMI through OPC-UA.
+
+The PLC function module is the main thread of the PLC simulator program.
 
 #### UA Data Structure Module
 
@@ -227,19 +229,83 @@ The UA structure is continuously synchronized with the PLC’s real-time state:
 This module completes the closed-loop behavior of the virtual PLC, enabling realistic control of the simulated airport runway light system, ADS-B integration, timing logic, and safety interlocks. The key feature includes: 
 
 - Parses and executes user-defined ladder logic instructions.
-
 - Runs automatically at a configurable execution frequency (simulating a PLC’s scan rate).
-
 - Reads values from the **input hash table**, processes rungs and logical operations, and updates the **output hash table**.
-
 - Supports typical UA PLC data types (bool, int16, float, string) as reflected in the OPC-UA variable tree.
+- Do the necessary data conversion (in the aviation cyber range PLC use the lib [pyModeS](https://github.com/junzis/pyModeS) to convert the combine message to the ADS-B message).
+
+The simulated ladder logic is called by the PLC Functional Module running in virtual PLC's main thread.
 
 
 
+------
+
+### System Workflow and Manual Mode Control
+
+This section explains how data flows through the Virtual PLC system when it is used in a cyber range and how manual override logic is managed through several OPC-UA bool variables. Using the example workflow shown in the diagram, the steps illustrate how Level-0 field inputs, PLC ladder logic, OPC-UA data structures, and Level-2/Level-3 applications interact in cyber range.
+
+#### Detailed Workflow Steps
+
+As shown the system design section, below diagram is an example to show the workflow steps of the PLC in the aviation cyber range :
+
+![](doc/img/s_09.png)
+
+**Step 1 — Field Sensors Update PLC Inputs** : Weather sensors and weather radar modules collect raw data (e.g., wind direction, visibility, precipitation). These values are written into the corresponding PLC Input Hash Table entries with the related data type (`int_16`, `float`, `bool` or `str`).
+
+**Step 2 — Ladder Logic Evaluation** : At every configured PLC function clock cycle, the Ladder Logic Module reads the input hash table and executes the rungs. This emulates a real PLC scan routine, producing updated internal logic results.
+
+**Step 3 — Synchronize Inputs to OPC-UA** : Each PLC input variable is mirrored to an associated OPC-UA Variable. This keeps the UA data model synchronized with the physical/virtual field state.
+
+**Step 4 — Ladder Output Generation** : The ladder logic output—such as an ADS-B message (`8D4840D6202CC371C32CE0576098`) or a runway-light control bit—is written into the PLC Output Hash Table.
+
+**Step 5 — Synchronize Outputs to OPC-UA** : The PLC output hash table values are immediately reflected in the corresponding OPC-UA Variables in the server’s UA data structure.
+
+**Step 6 — ADS-B Transmission to Field Devices** : When the output represents an ADS-B frame, it is passed to the simulated ground antenna, which broadcasts the message to all virtual aircraft in the managed airspace.
+
+**Step 7 — OPC-UA Server Response to External Clients** : Any Level-2 or Level-3 OPC-UA Client (HMI, monitoring software, historian, etc.) requests data directly from the OPC-UA Server. The server responds using the synchronized UA variables.
+
+**Step 8 — Tower HMI Updates** : The Level-2 Tower HMI fetches the latest ADS-B or sensor information from the OPC-UA Server and renders it on the ATC information display.
+
+**Step 9 — Raw Data Archival** : The Level-3 Data Center periodically retrieves raw OPC-UA data (e.g., weather telemetry, ADS-B messages) and stores it in the raw database for long-term analysis.
+
+#### Manual Mode Control
+
+In addition to automatic ladder-driven control, the Virtual PLC provides a **Manual Mode** mechanism. This allows operators, HMIs, or Level-2 SCADA programs to override PLC I/O values via OPC-UA, enabling testing, training, and fault-injection scenarios. To support this, every PLC input and output variable is paired with an associated **Overwrite Flag (OW Flag)** inside the UA data structure.
+
+**Manual / Auto Mode for PLC Inputs**
+
+For each PLC input hash table item, there is a corresponding Input Overwrite Flag:
+
+- **OW Flag = False  → Auto Mode** :  The PLC input value comes directly from sensors or external data feeds and the UA variable simply mirrors the automatically updated value.
+
+- **OW Flag = True → Manual Mode** : The UA variable’s manually entered value overwrites the PLC input hash table entry. This manually injected value is then used on the next ladder logic cycle.
+
+This allows operators to simulate specific sensor conditions—even if the field device is not generating them.
+
+**Manual / Auto Mode for PLC Outputs**
+
+The same mechanism applies to each PLC output variable:
+
+- **OW Flag = False → Auto Mode** : Ladder logic results are written into the output hash table and the UA variable updates automatically to reflect ladder logic decisions.
+- **OW Flag = True → Manual Mode** : The UA variable value overrides the ladder-generated output. The PLC output hash table is set to the manually specified value instead.
+
+This enables controlled overrides of actuators or messages—for example:
+
+- Forcing a runway-light circuit ON regardless of wind conditions
+- Sending a predefined ADS-B message for testing
+- Bypassing automatic safety logic during training exercises
+
+**Operator Awareness**
+
+When performing overrides:
+
+- The operator must **first switch the variable from auto mode to manual mode** by setting the OW Flag.
+- Only then will writing to the UA variable affect PLC behavior.
+- HMIs or SCADA interfaces must clearly display the current mode to avoid unintentional control conflicts.
+
+This design ensures consistent, deterministic behavior while still allowing engineering flexibility.
 
 
 
+------
 
-
-
-One additional function of the OPC-UA's ladder logic is the value over write control mode flag, each PLC variable will map to one UA variable and controlled by a overwrite (manual) mode flag, when the input manual mode UA_variable flag set to false, the related input 
