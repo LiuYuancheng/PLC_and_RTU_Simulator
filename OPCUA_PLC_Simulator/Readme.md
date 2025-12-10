@@ -18,6 +18,23 @@
 
 [TOC]
 
+- [Python Virtual PLC Simulator with IEC 62541 OPC-UA-TCP Communication Protocol](#python-virtual-plc-simulator-with-iec-62541-opc-ua-tcp-communication-protocol)
+    + [1. Introduction](#1-introduction)
+    + [2. OPC UA Protocol Background Knowledge](#2-opc-ua-protocol-background-knowledge)
+      - [2.1 OPC-UA TCP Protocol Packet Structure](#21-opc-ua-tcp-protocol-packet-structure)
+      - [2.2 OPC-UA Data Storage Structure](#22-opc-ua-data-storage-structure)
+    + [3. Design of The Virtual PLC](#3-design-of-the-virtual-plc)
+      - [3.1 Communication Module](#31-communication-module)
+      - [3.2 PLC Functional Module](#32-plc-functional-module)
+      - [3.3 UA Data Structure Module](#33-ua-data-structure-module)
+      - [3.4 Simulated PLC Ladder Logic Module](#34-simulated-plc-ladder-logic-module)
+    + [4. System Workflow and Manual Mode Control](#4-system-workflow-and-manual-mode-control)
+      - [4.1 Detailed Workflow Steps](#41-detailed-workflow-steps)
+      - [4.2 Manual Mode Control](#42-manual-mode-control)
+    + [5. System Use Case Example](#5-system-use-case-example)
+      - [5.1 One-Rung Ladder Logic Example](#51-one-rung-ladder-logic-example)
+    + [6. Conclusion and Reference](#6-conclusion-and-reference)
+
 ------
 
 ### 1. Introduction
@@ -112,13 +129,15 @@ For the message communication flow, this article [OPC UA Deep Dive (Part 3): Exp
 
 ![](doc/img/s_06.png)
 
-` Figure-03: OPCUA sample communicatino flow diagram, version v_0.0.3 (2025)`
+` Figure-04: OPCUA sample communicatino flow diagram, version v_0.0.3 (2025)`
 
-**OPC-UP traffic Pcap Example**
+**OPC-UP traffic PCAP Example**
 
 Below is a simplified packet view from Wireshark with the `Binary encoding frames`, `SecureChannel metadata` and `Read/Write service bodies` section : 
 
 ![](doc/img/s_07.png)
+
+` Figure-05: OPC-UA Communication Packet WireShark Packet Info, version v_0.0.3 (2025)`
 
 ```
 OpcUa Binary Protocol
@@ -180,51 +199,53 @@ OPC UA organizes its storage data in an address space, the core elements include
 
 ------
 
-### Design of The Virtual PLC
+### 3. Design of The Virtual PLC
 
-In this section, I will use the workflow of how the Automatic Dependent Surveillance–Broadcast (ADS-B) system's ground station control PLC is implemented in the  [Mini OT Aviation CAT-II Airport Runway Lights Management Simulation Cyber Range ](https://www.linkedin.com/pulse/aviation-runway-lights-management-simulation-system-yuancheng-liu-5rzhc)  as an example to show the detailed design of the OPCUA Virtual PLC/RTU Simulator Framework. 
+In this section, I will use the workflow of how the Automatic Dependent Surveillance–Broadcast (ADS-B) system's ground station control PLC is implemented in the  [Mini OT Aviation CAT-II Airport Runway Lights Management Simulation Cyber Range ](https://www.linkedin.com/pulse/aviation-runway-lights-management-simulation-system-yuancheng-liu-5rzhc) by using the OPC-UA PLC simulator as an example to show the detailed design logic. 
 
 This example illustrates how a software-defined PLC can fully emulate industrial controller behavior, process I/O, and integrate with both Level-0 simulated field devices and Level-2 SCADA/HMI applications. The overall system architecture is divided into three major layers, as shown in the system workflow diagram:
 
 ![](doc/img/s_08.png)
 
-The center portion of the diagram—Level 1 OT Controller Device—represents the Virtual PLC. This virtual controller contains Four primary components:
+` Figure-06: Simulated ADS-B System PLC Controller Workflow , version v_0.0.3 (2025)`
 
-#### Communication Module
+The center portion of the diagram—Level 1 OT Controller Device—represents the Virtual PLC simulation system. This virtual controller contains four primary components:
+
+#### 3.1 Communication Module
 
 The Communication Module acts as the virtual PLC’s external interface to the surrounding OT ecosystem. It connects upward to Level-2/3 SCADA/HMI systems and downward to Level-0 physical world simulators.( As illustrated in the orange section of the architecture)
 
-**OPC-UA TCP Communication Stack**
+**3.1.1 OPC-UA TCP Communication Stack**
 
-- Provides an embedded OPC-UA Server for exposing PLC I/O variables to higher-level systems.
+- Provides an embedded OPC-UA Server for exposing PLC I/O variables to higher-level SCADA systems.
 
 - Uses an OPC-UA Client interface when the HMI or data archive module needs to fetch data from external devices or data services.
 
-**UDP-Based ACARS Simulation Channel**
+**3.1.2 UDP-Based ACARS Simulation Channel**
 
-- The Incoming UDP ACARS message channel transfer physical world simulator's ACARS data into the virtual PLC's input hash table to simulate the PLC read real real time ADS-B information from different airport sensors/radar/antenna. 
-- The Outgoing ACARS packets are send the processed ACARS message saved in PLC's output hash table and delivered back to the simulated ADS-B ground station broadcast antenna for the airplane to use.
+- The Incoming UDP ACARS messages channel transfer physical world simulator's ACARS data into the virtual PLC's input hash table to simulate the PLC read real time ADS-B information from different airport sensors/radar/antenna. 
+- The Outgoing ACARS packets are send the processed ACARS message saved in PLC's output hash table and delivered back to the simulated ADS-B ground station broadcast antenna for the airplane to receive and use.
 
-The UDP-Based  Aircraft Communications Addressing and Reporting System (ACARS) challenge can also be replaced by other customized python interface module to simulate the electrical signal or connect to real GPIO of physical device. Each communication module is running is a sub-thread.
+The UDP-Based Aircraft Communications Addressing and Reporting System (ACARS) channel can also be replaced by other customized python interface modules to simulate the electrical signal changes or connect to real GPIO of physical device. Each communication module is running in a sub-thread.
 
-#### PLC Functional Module
+#### 3.2 PLC Functional Module
 
-Represented in the light green section of the diagram, the OPC-UA PLC Function Framework is the core runtime component inside the Level-1 controller VM, the PLC functional module emulates the core behavior of the programmable logic execution:
+Represented by the light green section of the diagram, the OPC-UA PLC function framework is the core runtime component inside the Level-1 controller VM, the PLC functional module emulates the core behavior of the programmable logic execution:
 
-- All incoming sensor values, contact states, and ACARS messages are stored in an internal PLC Input Variable Hash Table.
+- All incoming sensor values, contact states, and ACARS messages are stored in an internal PLC input variable hash table.
 - The hash table is passed into the Ladder Logic Execution Engine, where user-defined control logic is evaluated.
-- After logic execution, the computed results are written into the PLC Output Hash Table.
-- These output values are then forwarded to the physical world simulator through UDP and The SCADA/HMI through OPC-UA.
+- After logic execution, the computed results are written into the PLC output hash table.
+- These output values are then forwarded to the physical world simulator through UDP and the SCADA/HMI through OPC-UA.
 
 The PLC function module is the main thread of the PLC simulator program.
 
-#### UA Data Structure Module
+#### 3.3 UA Data Structure Module
 
-Represented in the dark green section of the diagram to expose the PLC I/O data to external systems, the framework builds a complete Unified Architecture  address space. This includes:
+Represented by the dark green section of the diagram to expose the PLC I/O data to external systems, the framework builds a complete Unified Architecture address space for data storage. This includes:
 
-- **UA_NameSpace** (for organizing custom PLC data)
-- **UA_Object nodes** (representing logical PLC components)
-- **UA_Variable nodes** (binding to each input/output hash table entry)
+- `UA_NameSpace` (for organizing custom PLC data)
+- `UA_Object nodes` (representing logical PLC components)
+- `UA_Variable nodes` (binding to each input/output hash table item)
 
 The UA structure is continuously synchronized with the PLC’s real-time state:
 
@@ -232,13 +253,13 @@ The UA structure is continuously synchronized with the PLC’s real-time state:
 - This ensures external OPC-UA Clients (SCADA, ADS-B monitoring HMI, Level-3 data center modules) always access up-to-date information.
 - Two UA over write (manual) mode variable flags allow the UA store data overwrite the PLC variables to implement the HMI manual control.
 
-#### Simulated PLC Ladder Logic Module
+#### 3.4 Simulated PLC Ladder Logic Module
 
 This module completes the closed-loop behavior of the virtual PLC, enabling realistic control of the simulated airport runway light system, ADS-B integration, timing logic, and safety interlocks. The key feature includes: 
 
 - Parses and executes user-defined ladder logic instructions.
-- Runs automatically at a configurable execution frequency (simulating a PLC’s scan rate).
-- Reads values from the **input hash table**, processes rungs and logical operations, and updates the **output hash table**.
+- Runs automatically at a configurable execution frequency (simulating a PLC’s clock cycle).
+- Reads values from the input hash table, processes rungs and logical operations, and updates the output hash table.
 - Supports typical UA PLC data types (bool, int16, float, string) as reflected in the OPC-UA variable tree.
 - Do the necessary data conversion (in the aviation cyber range PLC use the lib [pyModeS](https://github.com/junzis/pyModeS) to convert the combine message to the ADS-B message).
 
@@ -248,15 +269,17 @@ The simulated ladder logic is called by the PLC Functional Module running in vir
 
 ------
 
-### System Workflow and Manual Mode Control
+### 4. System Workflow and Manual Mode Control
 
-This section explains how data flows through the Virtual PLC system when it is used in a cyber range and how manual override logic is managed through several OPC-UA bool variables. Using the example workflow shown in the diagram, the steps illustrate how Level-0 field inputs, PLC ladder logic, OPC-UA data structures, and Level-2/Level-3 applications interact in cyber range.
+This section explains how data flows through the virtual PLC system when it is used in a cyber range and how manual override logic is managed through several OPC-UA bool variables. Using the example workflow shown in the diagram, the steps illustrate how Level-0 field inputs, PLC ladder logic, OPC-UA data structures, and Level-2/Level-3 applications interact in cyber range.
 
-#### Detailed Workflow Steps
+#### 4.1 Detailed Workflow Steps
 
-As shown the system design section, below diagram is an example to show the workflow steps of the PLC in the aviation cyber range :
+As introduced the system design diagram in previous section, below diagram is an example to show the workflow steps of the PLC in the aviation cyber range :
 
 ![](doc/img/s_09.png)
+
+` Figure-07: System Data Flow Diagram, version v_0.0.3 (2025)`
 
 **Step 1 — Field Sensors Update PLC Inputs** : Weather sensors and weather radar modules collect raw data (e.g., wind direction, visibility, precipitation). These values are written into the corresponding PLC Input Hash Table entries with the related data type (`int_16`, `float`, `bool` or `str`).
 
@@ -264,11 +287,11 @@ As shown the system design section, below diagram is an example to show the work
 
 **Step 3 — Synchronize Inputs to OPC-UA** : Each PLC input variable is mirrored to an associated OPC-UA Variable. This keeps the UA data model synchronized with the physical/virtual field state.
 
-**Step 4 — Ladder Output Generation** : The ladder logic output—such as an ADS-B message (`8D4840D6202CC371C32CE0576098`) or a runway-light control bit—is written into the PLC Output Hash Table.
+**Step 4 — Ladder Output Generation** : The ladder logic output—such as an ADS-B message (`8D4840D6202CC371C32CE0576098`) or a runway-light control bit—is written into the PLC output hash table.
 
 **Step 5 — Synchronize Outputs to OPC-UA** : The PLC output hash table values are immediately reflected in the corresponding OPC-UA Variables in the server’s UA data structure.
 
-**Step 6 — ADS-B Transmission to Field Devices** : When the output represents an ADS-B frame, it is passed to the simulated ground antenna, which broadcasts the message to all virtual aircraft in the managed airspace.
+**Step 6 — ADS-B Transmission to Field Devices** : When the output represents an ADS-B frame, it is passed to the simulated ground station antenna, which broadcasts the message to all virtual aircraft in the managed airspace.
 
 **Step 7 — OPC-UA Server Response to External Clients** : Any Level-2 or Level-3 OPC-UA Client (HMI, monitoring software, historian, etc.) requests data directly from the OPC-UA Server. The server responds using the synchronized UA variables.
 
@@ -276,21 +299,21 @@ As shown the system design section, below diagram is an example to show the work
 
 **Step 9 — Raw Data Archival** : The Level-3 Data Center periodically retrieves raw OPC-UA data (e.g., weather telemetry, ADS-B messages) and stores it in the raw database for long-term analysis.
 
-#### Manual Mode Control
+#### 4.2 Manual Mode Control
 
-In addition to automatic ladder-driven control, the Virtual PLC provides a **Manual Mode** mechanism. This allows operators, HMIs, or Level-2 SCADA programs to override PLC I/O values via OPC-UA, enabling testing, training, and fault-injection scenarios. To support this, every PLC input and output variable is paired with an associated **Overwrite Flag (OW Flag)** inside the UA data structure.
+In addition to automatic ladder-driven control, the Virtual PLC provides a **Manual Mode** mechanism. This allows operators, HMIs, or Level-2 SCADA programs to override PLC I/O values via OPC-UA, enabling testing, training, and fault-injection scenarios. To support this, every PLC input and output variable is paired with an associated Overwrite Flag (OW Flag) inside the UA data structure.
 
-**Manual / Auto Mode for PLC Inputs**
+**4.2.1 Manual / Auto Mode for PLC Inputs**
 
-For each PLC input hash table item, there is a corresponding Input Overwrite Flag:
+For each PLC input hash table item, there is a corresponding input overwrite flag:
 
 - **OW Flag = False  → Auto Mode** :  The PLC input value comes directly from sensors or external data feeds and the UA variable simply mirrors the automatically updated value.
 
-- **OW Flag = True → Manual Mode** : The UA variable’s manually entered value overwrites the PLC input hash table entry. This manually injected value is then used on the next ladder logic cycle.
+- **OW Flag = True → Manual Mode** : The UA variable’s value will overwrite the PLC input hash table item. This manually injected value will be used on the next ladder logic cycle.
 
 This allows operators to simulate specific sensor conditions—even if the field device is not generating them.
 
-**Manual / Auto Mode for PLC Outputs**
+**4.2.2 Manual / Auto Mode for PLC Outputs**
 
 The same mechanism applies to each PLC output variable:
 
@@ -303,11 +326,11 @@ This enables controlled overrides of actuators or messages—for example:
 - Sending a predefined ADS-B message for testing
 - Bypassing automatic safety logic during training exercises
 
-**Operator Awareness**
+**4.2.3 Operator Awareness**
 
-When performing overrides:
+When performing overrides for a UA variable:
 
-- The operator must **first switch the variable from auto mode to manual mode** by setting the OW Flag.
+- The operator must first switch the variable from auto mode to manual mode by setting the OW flag.
 - Only then will writing to the UA variable affect PLC behavior.
 - HMIs or SCADA interfaces must clearly display the current mode to avoid unintentional control conflicts.
 
@@ -317,7 +340,7 @@ This design ensures consistent, deterministic behavior while still allowing engi
 
 ------
 
-### Use Case Example
+### 5. System Use Case Example
 
 This section provides a practical walkthrough of how to build a simplified OPC-UA–based PLC simulator using the provided Python modules. The simulator demonstrates how OPC-UA variables, ladder logic, and manual mode overrides can be combined to emulate basic PLC behavior for OT/SCADA testing.
 
@@ -330,22 +353,24 @@ The following Python modules can be used as a baseline to run and extend the OPC
 | `testcase/opcuaPlcClientTest.py` | python 3.8+   | This module is a simple PLC connector program use the OPC-UA lib  module `<opcuaComm.py>` to simulate a SCADA device with one OPC-UA-TCP client to connect to the `<opcuaPlcServerTest.py>` to random setup the source variables value then verify the result. |
 | `testcase/opcuaPlcServerTest.py` | python 3.8+   | This module is a simple PLC simulation program use the OPC-UA lib module `<opcuaComm.py>` to simulate a PLC with one OPC-UA-TCP server and one ladder logic to handle variable read and changeable value set from client side. |
 
-#### One-Rung Ladder Example in the OPC-UA PLC Simulator
+#### 5.1 One-Rung Ladder Logic Example
 
-This example demonstrates how to build a minimal PLC simulator with one ladder-logic rung. The rung takes two temperature inputs, compares them, and generates a boolean output and a formatted message string. The rung logic is illustrated below:
+This example demonstrates how to build a minimal PLC simulator with one ladder-logic rung. The rung takes two temperature inputs, compares them, and generates a Boolean output and a formatted message string. The rung logic is illustrated below:
 
 ![](doc/img/s_10.png)
 
-| Variable Name          | UA Data Type             | Ladder I/O Type | Variable Description                         |
-| ---------------------- | ------------------------ | --------------- | -------------------------------------------- |
-| **Temperature_var1**   | `ua.VariantType.Int16`   | Input           | Input temperature value 1                    |
-| **Temperature_var2**   | `ua.VariantType.Float`   | Input           | Input temperature value 2                    |
-| **compare_bool_var**   | `ua.VariantType.Boolean` | Output          | Comparison result (Temp1 ≥ Temp2)            |
-| **combine_message**    | `ua.VariantType.String`  | Output          | Formatted message: `"Temp1=%sC, Temp2=%sC"`  |
-| **Src_overwrite_mode** | `ua.VariantType.Boolean` | N.A             | Ladder input source manual-mode toggle       |
-| **Dst_overwrite_mode** | `ua.VariantType.Boolean` | N.A             | Ladder output destination manual-mode toggle |
+` Figure-08: Simulated one rung ladder logic diagram, version v_0.0.3 (2025)`
 
-**PLC Initialization**
+| Variable Name          | UA Data Type             | Ladder I/O Type | Variable Description                        |
+| ---------------------- | ------------------------ | --------------- | ------------------------------------------- |
+| **Temperature_var1**   | `ua.VariantType.Int16`   | Input           | Input temperature value 1                   |
+| **Temperature_var2**   | `ua.VariantType.Float`   | Input           | Input temperature value 2                   |
+| **compare_bool_var**   | `ua.VariantType.Boolean` | Output          | Comparison result (Temp1 ≥ Temp2)           |
+| **combine_message**    | `ua.VariantType.String`  | Output          | Formatted message: `"Temp1=%sC, Temp2=%sC"` |
+| **Src_overwrite_mode** | `ua.VariantType.Boolean` | N.A             | Ladder input source manual-mode flag        |
+| **Dst_overwrite_mode** | `ua.VariantType.Boolean` | N.A             | Ladder output destination manual-mode flag  |
+
+**5.1.1 PLC Data Storage Initialization**
 
 In the PLC simulator (`opcuaPlcServerTest.py`), these variables are registered with the OPC-UA server:
 
@@ -370,9 +395,9 @@ r3 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID3, True)
 r4 = await self.server.addVariable(idx, OBJ_NAME, VAR_ID4, 'testStr')
 ```
 
-**Ladder Logic Execution**
+**5.1.2 Ladder Logic Execution**
 
-The ladder logic is executed periodically in the server’s main loop. The logic compares two temperatures and generates the boolean and string outputs:
+The ladder logic is executed periodically in the server’s main loop. The logic compares two temperatures and generates the Boolean and string outputs:
 
 ```python
 def runLadderLogic(self):
@@ -386,9 +411,9 @@ def runLadderLogic(self):
     )
 ```
 
-For multiple rungs ladder, put the high priority rung run in the end and low priority rung and the beginning, so the high priority rung execution result will overwrite the low priority one.
+For multiple rungs ladder, put the high priority rung run in the end and low priority rung at the beginning, so the high priority rung execution result will overwrite the low priority one.
 
-**Manual Mode – Source Variable Handling**
+**5.1.3 Manual Mode – Source Variable Handling**
 
 Configure the PLC ladder logic Inputs manual mode data flow with the below code example: 
 
@@ -408,7 +433,7 @@ else:
     await self.opcuaServerTh.getServer().updateVariable(VAR_ID2, self.srcVariableDict[VAR_ID2])
 ```
 
-**Manual Mode – Destination Variable Handling**
+**5.1.4 Manual Mode – Destination Variable Handling**
 
 Configure the PLC ladder logic output manual mode data flow with the below code example:
 
@@ -428,7 +453,7 @@ else:
     await self.opcuaServerTh.getServer().updateVariable(VAR_ID4, self.destVariableDict[VAR_ID4])
 ```
 
-**HMI/Client Interaction**
+**5.1.5 HMI/Client Interaction**
 
 For the HMI side fetch and set data, please refer to the data client test module: https://github.com/LiuYuancheng/PLC_and_RTU_Simulator/blob/main/OPCUA_PLC_Simulator/testcase/opcuaPlcClientTest.py, the client script also provide the function:
 
@@ -441,9 +466,11 @@ For the HMI side fetch and set data, please refer to the data client test module
 
 ------
 
-### Conclusion
+### 6. Conclusion and Reference 
 
-In conclusion, this project successfully extends the virtual PLC/RTU simulator by implementing the IEC 62541 OPC-UA-TCP communication protocol, creating a modern and secure platform for simulating industrial control systems. Through its modular design—integrating an OPC-UA communication layer, a core PLC simulation framework, and a ladder logic execution engine—the simulator provides a functional and educational environment for testing, prototyping, and studying OT/SCADA interactions. By supporting both automated logic and manual overrides via OPC-UA, it offers a versatile tool for developers, researchers, and cybersecurity professionals to model, analyze, and validate industrial automation architectures in a risk-free setting. For the virtual PLC with other OT protocol such as Modbus-TCP, Siemens-S7Comm and IEC 60870-5-104, you can refer to below article or link: 
+In conclusion, this project extends the virtual PLC/RTU simulator by implementing the IEC 62541 OPC-UA-TCP communication protocol, creating a modern and secure platform for simulating industrial control systems. Through its modular design—integrating an OPC-UA communication layer, a core PLC simulation framework, and a ladder logic execution engine—the simulator provides a functional and educational environment for testing, prototyping, and studying OT/SCADA interactions. By supporting both automated logic and manual overrides via OPC-UA, it offers a versatile tool for developers, researchers, and cybersecurity professionals to model, analyze, and validate industrial automation architectures in a risk-free setting. 
+
+For the virtual PLC with other OT protocol such as Modbus-TCP, Siemens-S7Comm and IEC 60870-5-104, you can refer to below article or link: 
 
 - https://www.linkedin.com/pulse/python-virtual-plc-simulator-iec-60870-5-104-protocol-yuancheng-liu-bov7c
 - https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc
@@ -453,4 +480,4 @@ In conclusion, this project successfully extends the virtual PLC/RTU simulator b
 
 ------
 
-> last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 08/04/2024 if you have any problem, please send me a message. 
+> last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 08/12/2025 if you have any problem, please send me a message. 
