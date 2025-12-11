@@ -131,7 +131,7 @@ For the message communication flow, this article [OPC UA Deep Dive (Part 3): Exp
 
 ` Figure-04: OPCUA sample communicatino flow diagram, version v_0.0.3 (2025)`
 
-**OPC-UP traffic PCAP Example**
+**2.1.1 OPC-UP traffic PCAP Example**
 
 Below is a simplified packet view from Wireshark with the `Binary encoding frames`, `SecureChannel metadata` and `Read/Write service bodies` section : 
 
@@ -476,7 +476,13 @@ For the virtual PLC with other OT protocol such as Modbus-TCP, Siemens-S7Comm an
 - https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc
 - https://github.com/LiuYuancheng/PLC_and_RTU_Simulator
 
+**6.1 Reference Link**
 
+- https://en.wikipedia.org/wiki/OPC_Foundation
+- https://opcconnect.opcfoundation.org/2022/03/connecting-plcs-to-various-software-packages-with-opc-ua/
+- https://opcconnect.opcfoundation.org/
+- https://github.com/FreeOpcUa/opcua-asyncio?tab=LGPL-3.0-1-ov-file
+- https://claroty.com/team82/research/opc-ua-deep-dive-part-3-exploring-the-opc-ua-protocol#The-Bits-and-Bytes-of-OPC-UA-Protocol-Structure
 
 ------
 
