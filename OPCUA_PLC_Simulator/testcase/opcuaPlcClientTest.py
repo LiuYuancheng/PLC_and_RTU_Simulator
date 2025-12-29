@@ -10,7 +10,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2025/12/04
-# Version:     v_0.0.3
+# Version:     v_0.0.4
 # Copyright:   Copyright (c) 2025 LiuYuancheng
 # License:     MIT License    
 #-----------------------------------------------------------------------------
@@ -108,6 +108,8 @@ class opcuaClientThread(threading.Thread):
                 (varibleName, value) = self.cmdQueue.get()
                 await self.client.setVariableVal(NAME_SPACE, OBJ_NAME, varibleName, value)
             time.sleep(0.5)
+        print("Termination set to True, disconnect from the server...")
+        await self.client.disconnect()
     
     #-----------------------------------------------------------------------------
     def getSourceVariableDict(self):
@@ -123,10 +125,9 @@ class opcuaClientThread(threading.Thread):
         else:
             print("PLC connector queue is full, please wait for the previous command to be executed.")
 
-    async def stop(self):
+    def stop(self):
         self.terminate = True
-        await self.client.disconnect()
-
+        
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class PlcConnector(object):
@@ -183,8 +184,8 @@ class PlcConnector(object):
         destDataDict = self.opcUAClientTh.getDestVariableDict()
         showTestResult(random_bool1, destDataDict[VAR_ID3], "Compare bool value")
         showTestResult(expectVal4, destDataDict[VAR_ID4], "Combine message")
-
-        await self.opcUAClientTh.stop()
+        time.sleep(1)
+        self.opcUAClientTh.stop()
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------

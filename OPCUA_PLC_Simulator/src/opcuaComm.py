@@ -11,7 +11,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2025/11/28
-# Version:     v_0.0.3
+# Version:     v_0.0.4
 # Copyright:   Copyright (c) 2025 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -228,9 +228,22 @@ class opcuaClient(object):
     """ OPCUA-TCP client class, it will connect to a opc-ua server to read and write
         the variables data.
     """
-    def __init__(self, serverUrl):
+    def __init__(self, serverUrl, timeout=None, watchdog_interval=None):
+        """ Init example: opcuaComm.opcuaClient("opc.tcp://localhost:4840/PLC_09/server/", 
+                                    timeout=5, watchdog_interval=10)
+            Args:
+                serverUrl (str): OPC-UP Target server url.
+                timeout (int, optional): Each request sent to the server expects an answer within this
+                    time. The timeout is specified in seconds.Defaults to None (4 sec in asyncua.Client).
+                watchdog_interval (int, optional): The time between checking if the server is still alive. 
+                The timeout is specified in seconds. Defaults to None (1 sec in asyncua.Client).
+        """
         self.serverUrl = str(serverUrl)
-        self.client = Client(self.serverUrl)
+        self.client = None 
+        if timeout is not None and watchdog_interval is not None:
+            self.client = Client(self.serverUrl, timeout=int(timeout), watchdog_intervall=int(watchdog_interval))
+        else:
+            self.client = Client(self.serverUrl)
 
     #----------------------------------------------------------------------------- 
     async def connect(self):
