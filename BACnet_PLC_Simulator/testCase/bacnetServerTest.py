@@ -18,6 +18,7 @@
 import os
 import sys
 import time
+import random
 import threading
 
 print("Current working directory is : %s" % os.getcwd())
@@ -48,6 +49,12 @@ def showTestResult(expectVal, val, message):
 DEV_ID = 123456
 DEV_NAME = "TestBACDevice"
 
+PARM_ID1 = 1
+PARM_ID2 = 2
+PARM_ID3 = 3
+PARM_ID4 = 4
+PARM_ID5 = 5
+
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class BACnetServerThread(threading.Thread):
@@ -56,7 +63,7 @@ class BACnetServerThread(threading.Thread):
         self.server = BACnetComm.BACnetServer(DEV_ID, DEV_NAME)
 
     #-----------------------------------------------------------------------------
-    def addParameter(self, parameter)
+    def addParameter(self, parameter):
         self.server.addAnalogObject(parameter["objectName"], 
                     parameter["objectIdentifier"][1], 
                     parameter["presentValue"], 
@@ -79,31 +86,60 @@ class plcSimulator(object):
 
     def __init__(self):
         self.server = BACnetServerThread()
-        time.sleep(0.1)
+        # Init the input and output manual module flag 1 - True, 0 - False
+        self.initModeFlag()
+        # Init the parameters.
+        self.srcVariableDict = {
+            'Temperature': 22.5,
+            'Humidity': 45.0,
+        }
+        self.destVariableDict = {
+            'Pressure': 101.3,
+        }
         self.initParameters()
         self.terminate = False
         self.server.start()
+
+    #-----------------------------------------------------------------------------
+    def initModeFlag(self):
+        inputFlag = {
+                "objectName": "InputManualFlag",
+                "objectIdentifier": ("analogValue", PARM_ID1),
+                "presentValue": 0,
+                "description": "Input manual flag",
+                "units": "bool"
+        }
+        self.server.addParameter(inputFlag)
+
+        outputFlag = {
+                "objectName": "OutputManualFlag",
+                "objectIdentifier": ("analogValue", PARM_ID2),
+                "presentValue": 0,
+                "description": "Output manual flag",
+                "units": "bool"
+        }
+        self.server.addParameter(outputFlag)
 
     #-----------------------------------------------------------------------------
     def initParameters(self):
         simpleAnalogVal = [
             {
                 "objectName": "Temperature",
-                "objectIdentifier": ("analogValue", 1),
+                "objectIdentifier": ("analogValue", PARM_ID3),
                 "presentValue": 22.5,
                 "description": "Room Temperature",
                 "units": "degreesCelsius"
             },
             {
                 "objectName": "Humidity",
-                "objectIdentifier": ("analogValue", 2),
+                "objectIdentifier": ("analogValue", PARM_ID4),
                 "presentValue": 45.0,
                 "description": "Room Humidity",
                 "units": "percent"
             },
             {
                 "objectName": "Pressure",
-                "objectIdentifier": ("analogValue", 3),
+                "objectIdentifier": ("analogValue", PARM_ID5),
                 "presentValue": 101.3,
                 "description": "Atmospheric Pressure",
                 "units": "kilopascals"
@@ -116,12 +152,43 @@ class plcSimulator(object):
     #-----------------------------------------------------------------------------
     def runLadderLogic(self):
         #print("Run the internal ladder logic")
-        val1 = self.server.getObjValue("Temperature")
-        val2 = self.server.getObjValue("Humidity")
-        val3 = val1 + val2 
-        self.server.setObjValue("Pressure", val3)
+        self.destVariableDict['Pressure'] = self.srcVariableDict['Temperature'] + self.srcVariableDict['Humidity']
     
-    
+    def fetchDataFromPhysicalWorld(self):
+        print("Fetch data from physical world.")
+        self.srcVariableDict['Temperature'] = round(random.uniform(20.0, 50.0),1)
+        self.srcVariableDict['Humidity'] = round(random.uniform(20.0, 50.0),1)
+
     def periodic(self):
         print("Start the BACnet PLC main periodic loop.")
         while not self.terminate:
+            self.fetchDataFromPhysicalWorld()
+            srcOWMd = int(self.server.getObjValue("InputManualFlag"))
+            if srcOWMd == 1:
+                val1 = self.server.getObjValue("Temperature")
+                val2 = self.server.getObjValue("Humidity")
+                self.srcVariableDict['Temperature'] = val1
+                self.srcVariableDict['Humidity'] = val2
+            else:
+                self.server.setObjValue('Temperature', self.srcVariableDict['Temperature'])
+                self.server.setObjValue('Humidity', self.srcVariableDict['Humidity'])
+
+            self.runLadderLogic()
+
+            dstOWMd = int(self.server.getObjValue("OutputManualFlag"))
+            if dstOWMd == 1:
+                val = self.server.getObjValue("Pressure")
+                self.destVariableDict['Pressure'] = val
+            else:
+                self.server.setObjValue('Pressure', self.destVariableDict['Pressure'])
+
+            time.sleep(1)
+
+    def stop(self):
+        self.terminate = True
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+if __name__ == "__main__":
+    plcObj = plcSimulator()
+    plcObj.periodic()
