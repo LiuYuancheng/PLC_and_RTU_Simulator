@@ -10,7 +10,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2026/01/06
-# Version:     v_0.0.1
+# Version:     v_0.0.2
 # Copyright:   Copyright (c) 2026 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -20,13 +20,14 @@ import time
 import threading
 import BACnetComm
 
+DEV_ID = 123456
+DEV_NAME = "TestBACDevice"
+
 def showTestResult(expectVal, val, message):
     rst = "[o] %s pass." % message if val == expectVal else "[x] %s error, expect:%s, get: %s." % (
         message, str(expectVal), str(val))
     print(rst)
-
-DEV_ID = 123456
-DEV_NAME = "TestBACDevice"
+    time.sleep(0.2)
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -69,7 +70,8 @@ class BACnetServerThread(threading.Thread):
                                 parameter["presentValue"], 
                                 parameter["description"], 
                                 parameter["units"])
-        
+    
+    #-----------------------------------------------------------------------------
     def getObjValue(self, objName):
         return self.server.getObjValue(objName)
     
@@ -79,6 +81,7 @@ class BACnetServerThread(threading.Thread):
     def run(self):
         self.server.runServer()
 
+    #-----------------------------------------------------------------------------
     def runLadderLogic(self):
         #print("Run the internal ladder logic")
         val1 = self.server.getObjValue("Temperature")
@@ -120,8 +123,7 @@ def main():
     showTestResult(72.6, round(r5, 1), "Test run simple ladder logic")
     client.cleanup()
     print("Client shut down successfully.")
-
-    print("\nServer shutting down...")
+    print("Server shutting down...")
     sys.exit(0)
     
 if __name__ == "__main__":

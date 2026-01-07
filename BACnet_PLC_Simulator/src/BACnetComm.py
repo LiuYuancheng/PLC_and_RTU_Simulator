@@ -2,11 +2,12 @@
 #-----------------------------------------------------------------------------
 # Name:        BACnetComm.py
 #
-# Purpose:     This module will use the BACpypes library (https://bacpypes.readthedocs.io/en/latest/index.html)
-#              to create a ISO 16484-5 Building Automation and Control Networks (BACnet) 
-#              server and client module communication API  test or simulate the 
-#              data/cmd flow connection of diverse building automation systems, 
-#              like HVAC, lighting, security, and access control,
+# Purpose:     This module will use the ISO 16484-5 BACnet python library BACpypes 
+#              (https://bacpypes.readthedocs.io/en/latest/index.html) to create 
+#              a Building Automation and Control Networks server and client module 
+#              communication API wrapper module which can simulate the analog data 
+#              flow connection of diverse building automation systems, like HVAC, 
+#              lighting, security, and access control.
 #
 # Author:      Yuancheng Liu
 #
@@ -16,19 +17,19 @@
 # License:     MIT License
 #-----------------------------------------------------------------------------
 
-import sys
 import time
 from threading import Thread, Event
 from bacpypes.core import run, stop
+from bacpypes.pdu import Address
 from bacpypes.iocb import IOCB
 from bacpypes.constructeddata import Any
 from bacpypes.primitivedata import Real
-from bacpypes.object import AnalogValueObject, Property,register_object_type
 from bacpypes.app import BIPSimpleApplication
-from bacpypes.pdu import Address
+from bacpypes.object import AnalogValueObject, Property
 from bacpypes.apdu import ReadPropertyRequest, WritePropertyRequest
 from bacpypes.local.device import LocalDeviceObject
 
+# default constant
 DEF_SERVER_IP = "0.0.0.0"
 DEF_SERVER_PORT = 47808
 
@@ -47,13 +48,13 @@ class WritableAnalogValueObject(AnalogValueObject):
 #-----------------------------------------------------------------------------
 class BACnetServer(object):
     """ The BAC server module to simulate a device or a sensors gateway in the 
-        BACnet network for the client to fetch the data.
+        BACnet network for the client to connect and fetch the data.
     """
     def __init__(self, deviceID, deviceName, ipaddr=DEF_SERVER_IP, port=DEF_SERVER_PORT):
         """ Init Example: server = BACnetServer(123456, "TestDevice")
             Args:
                 deviceID (int): the device unique ID.
-                deviceName (str): 
+                deviceName (str): the name of the device.
                 ipaddr (str, optional): host IP. Defaults to DEF_SERVER_IP.
                 port (int, optional): host port. Defaults to DEF_SERVER_PORT.
         """
@@ -70,6 +71,7 @@ class BACnetServer(object):
         self.application = BIPSimpleApplication(self.deviceInfo, self.deviceIP)
         print("BACnetServer: Start device server with ip %s" % str(self.deviceIP))
         self.analogObjDict = {}  # init the analog object dict
+        self.writeableFlag = True # Flag to set all the parameter writable or not
 
     #-----------------------------------------------------------------------------
     def addAnalogObject(self, objName, objID, objValue, objDesc, objUnit):
@@ -89,7 +91,7 @@ class BACnetServer(object):
             units=objUnit,
             outOfService=True
         )
-        analogObj._properties['presentValue'].mutable = True
+        analogObj._properties['presentValue'].mutable = self.writeableFlag 
         self.application.add_object(analogObj)
         self.analogObjDict[objName] = analogObj
         print("BACnetServer: Added analog object %s" % objName)
@@ -121,6 +123,9 @@ class BACnetServer(object):
             print("setObjValue() Error: the object name %s is not exist" %str(objName))
             return False
 
+    def setWritableFlag(self, flag):
+        self.writeableFlag = flag
+
     #-----------------------------------------------------------------------------
     def runServer(self):
         print("BACnetServer: Start server ...")
@@ -129,7 +134,7 @@ class BACnetServer(object):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class BACnetClient(object):
-    """ The BAC client module to simulate a console device connect to the BAC 
+    """ The BAC client module to simulate a console/HMI connect to the BACnet
         device to fetch the data. 
     """
     def __init__(self, deviceID, deviceName, serverIP, serverPort,
@@ -320,11 +325,11 @@ def main():
                                parameter["presentValue"], 
                                parameter["description"], 
                                parameter["units"])
-
     val = server.getObjValue('Temperature')
     print("get the obj value: %s" % str(val))
     server.setObjValue('Temperature', 25.0)
     server.runServer()
-
+    
+#-----------------------------------------------------------------------------
 if __name__ == "__main__":
     main()
