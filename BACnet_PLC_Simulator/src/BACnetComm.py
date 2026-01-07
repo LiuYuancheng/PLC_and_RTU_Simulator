@@ -23,7 +23,7 @@ from bacpypes.core import run, stop
 from bacpypes.iocb import IOCB
 from bacpypes.constructeddata import Any
 from bacpypes.primitivedata import Real
-from bacpypes.object import AnalogValueObject, register_object_type
+from bacpypes.object import AnalogValueObject, Property,register_object_type
 from bacpypes.app import BIPSimpleApplication
 from bacpypes.pdu import Address
 from bacpypes.apdu import ReadPropertyRequest, WritePropertyRequest
@@ -37,6 +37,11 @@ DEF_CLIENT_PORT = 47809
 
 DEF_ANALOG_VALUE_TYPE = 'analogValue'
 DEF_PROPERTY_IDENTIFIER = 'presentValue'
+
+#-----------------------------------------------------------------------------
+class WritableAnalogValueObject(AnalogValueObject):   
+     """Custom AnalogValueObject with writable presentValue"""        
+     properties = [Property('presentValue', Real, default=0.0, optional=True, mutable=True),]
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -67,7 +72,7 @@ class BACnetServer(object):
         self.analogObjDict = {}  # init the analog object dict
 
     #-----------------------------------------------------------------------------
-    def addAnalogObject(self, objName, objID, objValue, objDesc, objUnit):
+    def addAnalogObject(self, objName, objID, objValue, objDesc, objUnit, readOnly=False):
         """  Add an analog object to the BACnet server.
             Args:
                 objName (str): object name. example: "objectName": "Temperature"
@@ -75,6 +80,7 @@ class BACnetServer(object):
                 objValue (float): init present value. example: "presentValue": 22.5,
                 objDesc (str): object description. example: "description": "Room Temperature",
                 objUnit (str): object unit. example: "units": "degreesCelsius"
+                readOnly (bool, optional): if the object is read only. Defaults to False.
         """
         analogObj = AnalogValueObject(
             objectIdentifier=("analogValue", objID),
@@ -84,6 +90,7 @@ class BACnetServer(object):
             units=objUnit,
             outOfService=True
         )
+        analogObj._properties['presentValue'].mutable = not readOnly
         self.application.add_object(analogObj)
         self.analogObjDict[objName] = analogObj
         print("BACnetServer: Added analog object %s" % objName)
@@ -262,7 +269,6 @@ class BACnetClient(object):
             else:
                 print("writeObjProperty() Warning: Timeout waiting for write confirmation")
                 return False
-
         except Exception as e:
             print("write_property() Write error: %s" %str(e))
             return None
