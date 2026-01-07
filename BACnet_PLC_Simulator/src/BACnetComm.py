@@ -72,7 +72,7 @@ class BACnetServer(object):
         self.analogObjDict = {}  # init the analog object dict
 
     #-----------------------------------------------------------------------------
-    def addAnalogObject(self, objName, objID, objValue, objDesc, objUnit, readOnly=False):
+    def addAnalogObject(self, objName, objID, objValue, objDesc, objUnit):
         """  Add an analog object to the BACnet server.
             Args:
                 objName (str): object name. example: "objectName": "Temperature"
@@ -80,7 +80,6 @@ class BACnetServer(object):
                 objValue (float): init present value. example: "presentValue": 22.5,
                 objDesc (str): object description. example: "description": "Room Temperature",
                 objUnit (str): object unit. example: "units": "degreesCelsius"
-                readOnly (bool, optional): if the object is read only. Defaults to False.
         """
         analogObj = AnalogValueObject(
             objectIdentifier=("analogValue", objID),
@@ -90,7 +89,7 @@ class BACnetServer(object):
             units=objUnit,
             outOfService=True
         )
-        analogObj._properties['presentValue'].mutable = not readOnly
+        analogObj._properties['presentValue'].mutable = True
         self.application.add_object(analogObj)
         self.analogObjDict[objName] = analogObj
         print("BACnetServer: Added analog object %s" % objName)

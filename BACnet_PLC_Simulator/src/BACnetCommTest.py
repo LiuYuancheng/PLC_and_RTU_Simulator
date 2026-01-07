@@ -15,6 +15,7 @@
 # License:     MIT License
 #-----------------------------------------------------------------------------
 
+import sys
 import time
 import threading
 import BACnetComm
@@ -43,24 +44,21 @@ class BACnetServerThread(threading.Thread):
                 "objectIdentifier": ("analogValue", 1),
                 "presentValue": 22.5,
                 "description": "Room Temperature",
-                "units": "degreesCelsius",
-                "readonly": False
+                "units": "degreesCelsius"
             },
             {
                 "objectName": "Humidity",
                 "objectIdentifier": ("analogValue", 2),
                 "presentValue": 45.0,
                 "description": "Room Humidity",
-                "units": "percent",
-                "readonly": False
+                "units": "percent"
             },
             {
                 "objectName": "Pressure",
                 "objectIdentifier": ("analogValue", 3),
                 "presentValue": 101.3,
                 "description": "Atmospheric Pressure",
-                "units": "kilopascals",
-                "readonly": True
+                "units": "kilopascals"
             }
         ]
 
@@ -70,8 +68,7 @@ class BACnetServerThread(threading.Thread):
                                 parameter["objectIdentifier"][1], 
                                 parameter["presentValue"], 
                                 parameter["description"], 
-                                parameter["units"],
-                                readOnly=parameter["readonly"])
+                                parameter["units"])
         
     def getObjValue(self, objName):
         return self.server.getObjValue(objName)
@@ -83,7 +80,7 @@ class BACnetServerThread(threading.Thread):
         self.server.runServer()
 
     def runLadderLogic(self):
-        print("Run the internal ladder logic")
+        #print("Run the internal ladder logic")
         val1 = self.server.getObjValue("Temperature")
         val2 = self.server.getObjValue("Humidity")
         val3 = val1 + val2 
@@ -101,7 +98,31 @@ def main():
 
     serverThread.setObjValue("Humidity", 42.5)
     r1 = serverThread.getObjValue("Humidity")
-    showTestResult(42.5, r1, "Read the object property 'Humidity' value")
+    showTestResult(42.5, r1, "Set the object property 'Humidity' value")
 
+    serverThread.runLadderLogic()
+    r2 = serverThread.getObjValue("Pressure")
+    showTestResult(r0+r1, r2, "Test run simple ladder logic")
+
+    print("[_] Test BACnet client start")
+    serveraddr = "127.0.0.1:47808" 
+    client = BACnetComm.BACnetClient(2, "TestClient", '127.0.0.1', 47808)
+    time.sleep(1)
+    r3 = client.readObjProperty(None, 1)
+    showTestResult(22.5, r3, "Read the object property 'Temperature' value")
+    
+    client.writeObjProperty(serveraddr, 2, 50.1)
+    r4 = client.readObjProperty(serveraddr, 2)
+    showTestResult(50.1, round(r4, 1), "Write the object property 'Humidity' value")
+
+    serverThread.runLadderLogic()
+    r5 = client.readObjProperty(serveraddr, 3)
+    showTestResult(72.6, round(r5, 1), "Test run simple ladder logic")
+    client.cleanup()
+    print("Client shut down successfully.")
+
+    print("\nServer shutting down...")
+    sys.exit(0)
+    
 if __name__ == "__main__":
     main()
