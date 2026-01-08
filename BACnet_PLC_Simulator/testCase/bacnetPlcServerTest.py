@@ -98,6 +98,7 @@ class plcSimulator(object):
         }
         self.initParameters()
         self.terminate = False
+        time.sleep(1)
         self.server.start()
 
     #-----------------------------------------------------------------------------
@@ -152,7 +153,7 @@ class plcSimulator(object):
     #-----------------------------------------------------------------------------
     def runLadderLogic(self):
         #print("Run the internal ladder logic")
-        self.destVariableDict['Pressure'] = self.srcVariableDict['Temperature'] + self.srcVariableDict['Humidity']
+        self.destVariableDict['Pressure'] = round(self.srcVariableDict['Temperature'] + self.srcVariableDict['Humidity'], 1)
         print("Generate output pressure vale %s" %str(self.destVariableDict['Pressure']))
 
     def fetchDataFromPhysicalWorld(self):
@@ -162,6 +163,7 @@ class plcSimulator(object):
 
     def periodic(self):
         print("Start the BACnet PLC main periodic loop.")
+        self.fetchDataFromPhysicalWorld()
         while not self.terminate:
             self.fetchDataFromPhysicalWorld()
             srcOWMd = int(self.server.getObjValue("InputManualFlag"))
@@ -172,7 +174,11 @@ class plcSimulator(object):
                 self.srcVariableDict['Humidity'] = val2
             else:
                 self.server.setObjValue('Temperature', self.srcVariableDict['Temperature'])
+                r1 = self.server.getObjValue("Temperature")
+                showTestResult( self.srcVariableDict['Temperature'], round(r1, 1), "Update Temperature")
                 self.server.setObjValue('Humidity', self.srcVariableDict['Humidity'])
+                r2 = self.server.getObjValue("Humidity")
+                showTestResult( self.srcVariableDict['Humidity'], round(r2, 1), "Update Humidity")
 
             self.runLadderLogic()
 
@@ -182,8 +188,14 @@ class plcSimulator(object):
                 self.destVariableDict['Pressure'] = val
             else:
                 self.server.setObjValue('Pressure', self.destVariableDict['Pressure'])
+                r3 = self.server.getObjValue("Pressure")
+                showTestResult( self.destVariableDict['Pressure'], round(r3, 1), "Update Pressure")
 
-            time.sleep(1)
+            val1 = self.server.getObjValue("Temperature")
+            val2 = self.server.getObjValue("Humidity")
+            val3 = self.server.getObjValue("Pressure")
+            print("Current parameter val are %s, %s, %s" %(str(val1), str(val2), str(val3)))
+            time.sleep(2)
 
     def stop(self):
         self.terminate = True
