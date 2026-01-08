@@ -47,7 +47,7 @@ def showTestResult(expectVal, val, message):
     print(rst)
 
 DEV_ID = 123456
-DEV_NAME = "TestBACDevice"
+DEV_NAME = "TestBACnetServerDevice"
 
 PARM_ID1 = 1
 PARM_ID2 = 2
@@ -153,7 +153,8 @@ class plcSimulator(object):
     def runLadderLogic(self):
         #print("Run the internal ladder logic")
         self.destVariableDict['Pressure'] = self.srcVariableDict['Temperature'] + self.srcVariableDict['Humidity']
-    
+        print("Generate output pressure vale %s" %str(self.destVariableDict['Pressure']))
+
     def fetchDataFromPhysicalWorld(self):
         print("Fetch data from physical world.")
         self.srcVariableDict['Temperature'] = round(random.uniform(20.0, 50.0),1)
