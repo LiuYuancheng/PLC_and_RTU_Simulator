@@ -24,17 +24,60 @@ The enhanced virtual RTU simulator developed in this project focuses on modeling
 
 ### 1. Introduction
 
-The python ISO 16484-5 BACnet Simulator is designed to used to build the virtual components in the building management (such as the HVAC, lighting, and security system) of a OT digital/Cyber twin. It serves as both a learning and testing platform for BACnet-based building automation applications. The RTU simulator is **NOT** 1:1 emulate the real BACnet devices function, this simulator focuses on the core operational behaviors of BACnet remote controller : the variable storage model, data exchange patterns, and control logic execution cycle. It provides an educational and prototyping environment for below purpose:
+The **Python ISO 16484-5 BACnet Simulator** is designed to construct virtual building-automation components—such as HVAC, lighting, security, and environmental monitoring systems—within an OT cyber twin/range environment. It serves as both a learning platform and a testing bench for BACnet-based building automation applications, enabling users to explore protocol behavior without requiring physical building-automation hardware.
 
-- Academic researchers studying industrial automation
-- Students learning OT protocols and BAC device behavior
-- Developers building or testing BACnet-enabled systems
-- OT cybersecurity professionals analyzing communication flows
+The RTU simulator does **not** attempt to be a 1:1 emulation of every feature of real BACnet devices. Instead, it focuses on the essential operational behaviors of a BACnet remote controller, including:
 
-In this system I use the python BACnet lib [BACpypes](https://bacpypes.readthedocs.io/en/latest/gettingstarted/gettingstarted001.html) to implement the communication part. The RTU simulator allows users to construct a cyber twin that architectures that mirror the basic 3 level components in real OT environments. As illustrated in the diagram below, it supports interactions across multiple OT layers, from Level 0 (physical field devices and sensors)  to Level 2 (control center/Processing Lan). Users can prototype virtual field controllers, RTUs, I/O servers, or SCADA clients, all communicating through the BACnet protocol. 
+- BACnet variable/object storage models
+- data exchange and interaction patterns
+- cyclic control-logic execution and decision making
+
+#### 1.1 Introduction of System Architecture
+
+The simulator allows users to construct cyber-twin architectures that reflect the **three-level structure commonly found in real OT systems**.  Within this virtual environment, users can prototype BACnet-enabled field controllers, RTUs, I/O servers and Building management SCADA/HMI clients  over the BACnet protocol. As shown in the system structure diagram below:
 
 ![](doc/img/s_03.png)
 
+The platform supports interactions across OT layers from:
+
+- **Level 0** – physical-world devices and sensors such HVAC temp sensor, security door looker, lighting motion sensor.
+- **Level 1** – field controllers and RTUs such as the HVAC auto controller, light controller. 
+- **Level 2** – control center / processing LAN environments such as the building monitor and management station.
+
+Then communication functionality in this project is implemented using the Python library  [BACpypes](https://bacpypes.readthedocs.io/en/latest/gettingstarted/gettingstarted001.html) , which provides a software stack conforming to the ISO 16484-5 BACnet standard. The BACnet node communication topology in the simulator supports both host–connector and publish–subscribe interaction models, depending on configuration:
+
+- lower-level OT components (RTUs, field controllers) expose process data via embedded BACnet **server/publisher** modules.
+
+- higher-level components (HMI, SCADA, historians, database servers) use BACnet **client/subscriber** modules to browse, read, write, and subscribe to exposed data.
+
+By modeling these core aspects, the simulator provides an effective environment for education, prototyping, and experimentation in the following domains:
+
+- Academic research in building and industrial automation
+- Students learning OT communication protocols and BACnet device behavior
+- Developers designing or verifying BACnet-enabled systems
+- OT cybersecurity professionals analyzing protocol traffic and system interactions
+
+In this article I will also show the detailed usage of the RTU frame work to build on automated HVAC controlling system.
+
+
+
+------
+
+### 2. BACnet Background Knowledge
+
+BACnet (Building Automation and Control Networks) is an open communication protocol standardized as **ANSI/ASHRAE 135** and **ISO 16484-5**. It is designed specifically for building automation and control systems, enabling interoperability among devices from different manufacturers including: `HVAC controllers`, `lighting and energy management systems`, `access control and security systems`, `environmental monitoring devices` and `building management platforms and SCADA systems`. These BACnet devices expose their functions and data as standardized *BACnet objects* (such as Analog Input or Binary Output), enabling common semantics for monitoring and control across heterogeneous systems.
+
+BACnet supports multiple transport layers, including:
+
+- BACnet/IP (UDP over IP networks)
+- BACnet MS/TP (RS-485 serial bus)
+- BACnet Ethernet
+- BACnet over LonTalk
+- BACnet over ARCNET
+
+In this project, the simulator focuses on **BACnet/IP**, which is the most widely deployed option in modern building automation networks. The BACnet messages are encapsulated in **UDP/IP packets** and sent over Ethernet. The protocol uses **UDP port 47808 (0xBAC0)** by default.
+
+2.1 
 
 
 
@@ -44,5 +87,8 @@ In this system I use the python BACnet lib [BACpypes](https://bacpypes.readthedo
 
 
 
+https://www.optigo.net/whats-in-a-bacnet-packet-capture/
+
+https://www.emqx.com/en/blog/bacnet-protocol-basic-concepts-structure-obejct-model-explained
 
 https://youtu.be/xxZrl2InHuM?si=bPPfYq2hx5O53adJ
