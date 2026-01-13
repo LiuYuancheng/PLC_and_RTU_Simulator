@@ -8,8 +8,6 @@ The enhanced virtual RTU simulator developed in this project focuses on modeling
 - **RTU Simulator Framework** – A virtual building-system controller framework that simulates physical components such as HVAC, lighting, and security systems, supporting monitoring and automatic control based on predefined logic rules.
 - **Data Processing and Control Module** – A plug-in Python module for BACnet data storage, processing, and control-signal generation, integrated with the RTU simulator framework to execute control strategies.
 
-
-
 ```python
 # Author:      Yuancheng Liu
 # Created:     2026/01/08
@@ -135,3 +133,5 @@ https://www.optigo.net/whats-in-a-bacnet-packet-capture/
 https://www.emqx.com/en/blog/bacnet-protocol-basic-concepts-structure-obejct-model-explained
 
 https://youtu.be/xxZrl2InHuM?si=bPPfYq2hx5O53adJ
+
+https://www.majestic-ac.com/how-a-residential-hvac-system-works-a-homeowners-guide/

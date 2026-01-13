@@ -206,26 +206,26 @@ class hvacSimulator(object):
                 print("[*] Make sure heater is off")
                 self.server.setObjValue("Heater_Power", 0)
                 if sensorTemp > ctrlTemp:
-                    print("[*] Sensor_Temperature > Control_Temperature, turn compressor on")
+                    print("[*] Sensor_Temperature > Control_Temperature, set compressor [power on]")
                     self.server.setObjValue("Compressor_Power", 2)
                     # update the sensor value
                     newSensorTemp = sensorTemp - 0.1
                     self.server.setObjValue("Sensor_Temperature", newSensorTemp)
                 else:
-                    print("[*] Sensor_Temperature <= Control_Temperature, turn Compressor idle")
+                    print("[*] Sensor_Temperature <= Control_Temperature, set compressor [idle]")
                     self.server.setObjValue("Compressor_Power", 1)
             elif power == 2:
                 print("Start heating process.")
                 print("[*] Make sure compressor is off")
                 self.server.setObjValue("Compressor_Power", 0)
                 if sensorTemp < ctrlTemp:
-                    print("[*] Sensor_Temperature < Control_Temperature, turn heater on")
+                    print("[*] Sensor_Temperature < Control_Temperature, set heater [power on]")
                     self.server.setObjValue("Heater_Power", 2)
                     # update the sensor value
                     newSensorTemp = sensorTemp + 0.1
                     self.server.setObjValue("Sensor_Temperature", newSensorTemp)
                 else:
-                    print("[*] Sensor_Temperature >= Control_Temperature, turn Heater idle")
+                    print("[*] Sensor_Temperature >= Control_Temperature, set heater [idle]")
                     self.server.setObjValue("Heater_Power", 1)
             time.sleep(2)
 
