@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:        bacnetServerTest.py
+# Name:        bacnetRtuServerTest.py
 #
 # Purpose:     This module is a simple BACnet device simulation program use the 
 #              module <BACnetComm.py> to simulate a PLC with one BACnet server 

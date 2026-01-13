@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:        bacnetPlcClientTest.py
+# Name:        bacnetRtuClientTest.py
 #
 # Purpose:     This module is a simple PLC connector program use the BACnet comm 
 #              module <BACnetComm.py> to simulate a SCADA device with one BACnet  

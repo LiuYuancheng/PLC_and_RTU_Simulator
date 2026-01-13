@@ -1,4 +1,4 @@
-echo "Running test case program [bacnetPlcServerTest.py]"
+echo "Running test case program [bacnetRtuClientTest.py]"
 @echo off
 REM Enable the virtual environment, replace the vEnv3.8 with the vEnv you configured.
 call workon vEnv3.9
@@ -13,5 +13,5 @@ if %errorlevel% neq 0 (
 )
 echo "> Run program under virtual environment"
 REM Run the Python script under virtual environment.
-call bacnetPlcClientTest.py
+call bacnetRtuClientTest.py
 pause

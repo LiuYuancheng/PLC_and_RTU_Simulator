@@ -77,11 +77,52 @@ BACnet supports multiple transport layers, including:
 
 In this project, the simulator focuses on **BACnet/IP**, which is the most widely deployed option in modern building automation networks. The BACnet messages are encapsulated in **UDP/IP packets** and sent over Ethernet. The protocol uses **UDP port 47808 (0xBAC0)** by default.
 
-2.1 
+#### 2.1 BACnet/IP Protocol Packet Structure 
+
+BACnet/IP uses the UDP protocol for data transmission, a typical BACnet/IP frame can be conceptually divided into the following parts as shown below:
+
+![](doc/img/s_05.png)
+
+- **UDP/IP Header** : Standard network layer and transport layer addressing.
+- **BACnet Virtual Link Control(BVLC)** : Identifies BACnet/IP messages and handles broadcasts and forwarding.
+- **Network Protocol Data Unit(NPDU)** : Performs BACnet network layer routing contains `version`, `control flags`, `destination/source network info`,  `hop count` and `network message type`.
+- **Application Protocol Data Unit(APDU)** : Encodes application layer services includes `PDU type`, `invoke ID` , `service choice` and `service parameters`.
+
+#### 2.4 BACnet Data Structure and Object Model
+
+BACnet organizes data in standardized objects with properties. Each BACnet object represents a functional element inside a device. The typical object types defined in ISO 16484-5 include: `Analog Input`, `Analog Output`, `Analog Value`, `Binary Input` , `Binary Output`, `Binary Value`, `Multi-State Input/Output/Value`, `Device`, `Schedule`, `Calendar`, `Trend Log` and `Event Enrollment`. 
+
+Each object has a unique **Object Identifier (Object ID)** and a **Object Name** within the device. Every BACnet object contains a set of **properties**, some mandatory and some optional. Examples include:
+
+- **Present_Value** : Current physical or logical value of the object
+- **Description** : Human-readable text
+- **Status_Flags** : In-alarm, fault, overridden, out-of-service
+- **Units** : Engineering unit (°C, %, Pa, etc.)
+- **Event_State and Alarm Limits** : Used for alarm handling
+
+An example of BACnet Object: 
+
+```python
+{
+    "objectName": "Temperature",
+    "objectIdentifier": ("analogValue", 1),
+    "presentValue": 22.5,
+    "description": "Room Temperature",
+    "units": "degreesCelsius"
+},
+```
+
+Properties are accessed through `ReadProperty` or `WriteProperty` services, the request `ReadProperty`  and `WriteProperty` request is shown below:
+
+![](doc/img/s_06.png)
 
 
 
+------
 
+### 3. Design of The Virtual RTU
+
+In this section, I will use the workflow of how to create a building auto HVAC remote controlling system 
 
 
 
