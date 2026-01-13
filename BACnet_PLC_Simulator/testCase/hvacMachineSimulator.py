@@ -1,15 +1,15 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:        bacnetRtuServerTest.py
+# Name:        HvacMachineSimulator.py
 #
-# Purpose:     This module is a simple BACnet device simulation program use the 
-#              module <BACnetComm.py> to simulate a RTU with one BACnet server 
-#              and one ladder logic to handle variable read and changeable value 
-#              set from client side.
+# Purpose:     This module is a simple Heating Ventilation and Air Conditioning(HVAC)
+#              machine simulator with the basic auto control function based on 
+#              the controller's setting. It will host one BAC server which can 
+#              accept multiple clients(controller)'s control request.
 #
 # Author:      Yuancheng Liu
 #
-# Created:     2026/01/07
+# Created:     2026/01/10
 # Version:     v_0.0.2
 # Copyright:   Copyright (c) 2026 LiuYuancheng
 # License:     MIT License    
@@ -47,13 +47,18 @@ def showTestResult(expectVal, val, message):
     print(rst)
 
 DEV_ID = 123456
-DEV_NAME = "TestBACnetServerDevice"
+DEV_NAME = "HVAC_Signal_Receiver"
 
 PARM_ID1 = 1
 PARM_ID2 = 2
 PARM_ID3 = 3
 PARM_ID4 = 4
 PARM_ID5 = 5
+PARM_ID6 = 6
+
+PARM_ID11 = 11
+PARM_ID12 = 12
+PARM_ID13 = 13
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -82,21 +87,14 @@ class BACnetServerThread(threading.Thread):
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-class RTUSimulator(object):
+class hvacSimulator(object):
 
     def __init__(self):
         self.server = BACnetServerThread()
         # Init the input and output manual module flag 1 - True, 0 - False
         self.initModeFlag()
-        # Init the parameters.
-        self.srcVariableDict = {
-            'Temperature': 22.5,
-            'Humidity': 45.0,
-        }
-        self.destVariableDict = {
-            'Pressure': 101.3,
-        }
-        self.initParameters()
+        self.initInternalParams()
+        self.initControlParams()
         self.terminate = False
         time.sleep(1)
         self.server.start()
@@ -122,26 +120,33 @@ class RTUSimulator(object):
         self.server.addParameter(outputFlag)
 
     #-----------------------------------------------------------------------------
-    def initParameters(self):
+    def initInternalParams(self):
         simpleAnalogVal = [
             {
-                "objectName": "Temperature",
+                "objectName": "Sensor_Temperature",
                 "objectIdentifier": ("analogValue", PARM_ID3),
                 "presentValue": 22.5,
                 "description": "Room Temperature",
                 "units": "degreesCelsius"
             },
             {
-                "objectName": "Humidity",
+                "objectName": "Sensor_Humidity",
                 "objectIdentifier": ("analogValue", PARM_ID4),
                 "presentValue": 45.0,
                 "description": "Room Humidity",
                 "units": "percent"
             },
             {
-                "objectName": "Pressure",
+                "objectName": "Compressor_Power",
                 "objectIdentifier": ("analogValue", PARM_ID5),
-                "presentValue": 101.3,
+                "presentValue": 1, # 0 off, 1 idle, 2 working
+                "description": "Atmospheric Pressure",
+                "units": "kilopascals"
+            },
+            {
+                "objectName": "Heater_Power",
+                "objectIdentifier": ("analogValue", PARM_ID6),
+                "presentValue": 0, # 0 off, 1 idle, 2 working
                 "description": "Atmospheric Pressure",
                 "units": "kilopascals"
             }
@@ -151,57 +156,83 @@ class RTUSimulator(object):
             self.server.addParameter(parameter)
 
     #-----------------------------------------------------------------------------
-    def runLadderLogic(self):
-        #print("Run the internal ladder logic")
-        self.destVariableDict['Pressure'] = round(self.srcVariableDict['Temperature'] + self.srcVariableDict['Humidity'], 1)
-        print("Generate output pressure vale %s" %str(self.destVariableDict['Pressure']))
+    def initControlParams(self):
+        simpleAnalogVal = [
+            {
+                "objectName": "Control_Temperature",
+                "objectIdentifier": ("analogValue", PARM_ID11),
+                "presentValue": 22.5,
+                "description": "Room Temperature",
+                "units": "degreesCelsius"
+            },
+            {
+                "objectName": "Control_Fan_Speed",
+                "objectIdentifier": ("analogValue", PARM_ID12),
+                "presentValue": 1,
+                "description": "Fan Speed",
+                "units": "level"
+            },
+            {
+                "objectName": "Hvac_Power",
+                "objectIdentifier": ("analogValue", PARM_ID13),
+                "presentValue": 1, # 0 off, 1 Cooling, 2 Heating
+                "description": "HVAC Power Control",
+                "units": "bool"
+            },
+        ]
+        for parameter in simpleAnalogVal:
+            self.server.addParameter(parameter)
 
-    def fetchDataFromPhysicalWorld(self):
-        print("Fetch data from physical world.")
-        self.srcVariableDict['Temperature'] = round(random.uniform(20.0, 50.0),1)
-        self.srcVariableDict['Humidity'] = round(random.uniform(20.0, 50.0),1)
-
+    #-----------------------------------------------------------------------------
     def periodic(self):
         print("Start the BACnet RTU main periodic loop.")
-        self.fetchDataFromPhysicalWorld()
         while not self.terminate:
-            self.fetchDataFromPhysicalWorld()
-            srcOWMd = int(self.server.getObjValue("InputManualFlag"))
-            if srcOWMd == 1:
-                val1 = self.server.getObjValue("Temperature")
-                val2 = self.server.getObjValue("Humidity")
-                self.srcVariableDict['Temperature'] = val1
-                self.srcVariableDict['Humidity'] = val2
-            else:
-                self.server.setObjValue('Temperature', self.srcVariableDict['Temperature'])
-                r1 = self.server.getObjValue("Temperature")
-                showTestResult( self.srcVariableDict['Temperature'], round(r1, 1), "Update Temperature")
-                self.server.setObjValue('Humidity', self.srcVariableDict['Humidity'])
-                r2 = self.server.getObjValue("Humidity")
-                showTestResult( self.srcVariableDict['Humidity'], round(r2, 1), "Update Humidity")
-
-            self.runLadderLogic()
-
-            dstOWMd = int(self.server.getObjValue("OutputManualFlag"))
-            if dstOWMd == 1:
-                val = self.server.getObjValue("Pressure")
-                self.destVariableDict['Pressure'] = val
-            else:
-                self.server.setObjValue('Pressure', self.destVariableDict['Pressure'])
-                r3 = self.server.getObjValue("Pressure")
-                showTestResult( self.destVariableDict['Pressure'], round(r3, 1), "Update Pressure")
-
-            val1 = self.server.getObjValue("Temperature")
-            val2 = self.server.getObjValue("Humidity")
-            val3 = self.server.getObjValue("Pressure")
-            print("Current parameter val are %s, %s, %s" %(str(val1), str(val2), str(val3)))
+            # Hvac auto control logic
+            print("\n*** Start One HVAC Auto-Control Around...***")
+            power = int(self.server.getObjValue("Hvac_Power"))
+            print("Hvac_Power mode: %s" %str(('OFF', 'Cooling', 'Heating')[min(power, 2)]))
+            time.sleep(0.5)
+            ctrlTemp = round(self.server.getObjValue("Control_Temperature"), 1)
+            print("Control_Temperature: %s 'C" %str(ctrlTemp))
+            time.sleep(0.5)
+            sensorTemp = round(self.server.getObjValue("Sensor_Temperature"),1)
+            print("Sensor_Temperature: %s 'C" %str(sensorTemp))
+            time.sleep(0.5)
+            if power == 0:
+                print("HVAC is OFF, no auto control")
+                pass
+            elif power == 1: 
+                print("Start cooling process.")
+                print("[*] Make sure heater is off")
+                self.server.setObjValue("Heater_Power", 0)
+                if sensorTemp > ctrlTemp:
+                    print("[*] Sensor_Temperature > Control_Temperature, turn compressor on")
+                    self.server.setObjValue("Compressor_Power", 2)
+                    # update the sensor value
+                    newSensorTemp = sensorTemp - 0.1
+                    self.server.setObjValue("Sensor_Temperature", newSensorTemp)
+                else:
+                    print("[*] Sensor_Temperature <= Control_Temperature, turn Compressor idle")
+                    self.server.setObjValue("Compressor_Power", 1)
+            elif power == 2:
+                print("Start heating process.")
+                print("[*] Make sure compressor is off")
+                self.server.setObjValue("Compressor_Power", 0)
+                if sensorTemp < ctrlTemp:
+                    print("[*] Sensor_Temperature < Control_Temperature, turn heater on")
+                    self.server.setObjValue("Heater_Power", 2)
+                    # update the sensor value
+                    newSensorTemp = sensorTemp + 0.1
+                    self.server.setObjValue("Sensor_Temperature", newSensorTemp)
+                else:
+                    print("[*] Sensor_Temperature >= Control_Temperature, turn Heater idle")
+                    self.server.setObjValue("Heater_Power", 1)
             time.sleep(2)
 
     def stop(self):
         self.terminate = True
 
 #-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
 if __name__ == "__main__":
-    RTUObj = RTUSimulator()
-    RTUObj.periodic()
+    havcObj = hvacSimulator()
+    havcObj.periodic()

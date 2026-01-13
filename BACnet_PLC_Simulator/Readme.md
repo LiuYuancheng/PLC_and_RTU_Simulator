@@ -1,12 +1,14 @@
-# Python Visual Building Controller (RTU) with ISO 16484-5 BACnet Communication Protocol
+# Python Visual Building Controller (RTU) with ISO 16484-5 BACnet to Simulate Building HVAC System
 
-**Project Design Purpose** : In this project, I extend the [Python-Based virtual Remote Terminal Unit Simulator System](https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc) (which interfaced to SCADA system via Modbus-TCP, Siemens-S7Comm, IEC 60870-5-104 and IEC 62541 OPC-UA-TCP)  by adding the support for **ISO 16484-5 BACne**t protocol. The BACnet (Building Automation and Control Networks) is an open communication protocol defined in ANSI/ASHRAE 135 and ISO 16484-5. It is widely used in building automation to integrate systems such as HVAC, lighting, energy management, security, and access control. By providing a common communication language, BACnet enables devices from different manufacturers to interoperate seamlessly.
+**Project Design Purpose** : In this project, I extend the [Python-Based virtual Remote Terminal Unit Simulator System](https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc) (which interfaced to SCADA system via Modbus-TCP, Siemens-S7Comm, IEC 60870-5-104 and IEC 62541 OPC-UA-TCP)  by adding the support for **ISO 16484-5 BACne**t protocol. In this article I will also show the detailed usage of the RTU frame work to build on automated HVAC controlling system.
 
 The enhanced virtual RTU simulator developed in this project focuses on modeling the core behaviors of BACnet devices and controllers, including data acquisition, value exchange, processing, and automated control according to the ISO 16484-5 specification which can help build the OT components in cyber range. This project delivers three key capabilities:
 
 - **BACnet Communication Module** – A Python BACnet communication layer (server and client) supporting interaction among Sensors, Controllers, RTUs, BACnet Gateways, and SCADA/HMI systems, enabling analog and discrete BACnet data exchange.
 - **RTU Simulator Framework** – A virtual building-system controller framework that simulates physical components such as HVAC, lighting, and security systems, supporting monitoring and automatic control based on predefined logic rules.
 - **Data Processing and Control Module** – A plug-in Python module for BACnet data storage, processing, and control-signal generation, integrated with the RTU simulator framework to execute control strategies.
+
+
 
 ```python
 # Author:      Yuancheng Liu
@@ -23,6 +25,8 @@ The enhanced virtual RTU simulator developed in this project focuses on modeling
 ------
 
 ### 1. Introduction
+
+The BACnet (Building Automation and Control Networks) is an open communication protocol defined in ANSI/ASHRAE 135 and ISO 16484-5. It is widely used in building automation to integrate systems such as HVAC, lighting, energy management, security, and access control. By providing a common communication language, BACnet enables devices from different manufacturers to interoperate seamlessly.
 
 The **Python ISO 16484-5 BACnet Simulator** is designed to construct virtual building-automation components—such as HVAC, lighting, security, and environmental monitoring systems—within an OT cyber twin/range environment. It serves as both a learning platform and a testing bench for BACnet-based building automation applications, enabling users to explore protocol behavior without requiring physical building-automation hardware.
 
@@ -56,8 +60,6 @@ By modeling these core aspects, the simulator provides an effective environment 
 - Students learning OT communication protocols and BACnet device behavior
 - Developers designing or verifying BACnet-enabled systems
 - OT cybersecurity professionals analyzing protocol traffic and system interactions
-
-In this article I will also show the detailed usage of the RTU frame work to build on automated HVAC controlling system.
 
 
 
@@ -126,7 +128,7 @@ In this section, I will use the workflow of how to create a building auto HVAC r
 
 
 
-
+https://breezecontrols.com/product-category/bacnet-thermostat/?gad_source=1&gad_campaignid=21081655336&gbraid=0AAAAAqHBHJ_z39_2CQAMXZRKkUAiNXLHt&gclid=Cj0KCQiA1JLLBhCDARIsAAVfy7j4DeFjZ1aXiF3JMAuehML2u1xRfXH74sITK7QjAnp_K2ZjRrwK4HoaAtsrEALw_wcB
 
 https://www.optigo.net/whats-in-a-bacnet-packet-capture/
 

@@ -2,9 +2,9 @@
 #-----------------------------------------------------------------------------
 # Name:        bacnetRtuClientTest.py
 #
-# Purpose:     This module is a simple PLC connector program use the BACnet comm 
+# Purpose:     This module is a simple RTU connector program use the BACnet comm 
 #              module <BACnetComm.py> to simulate a SCADA device with one BACnet  
-#              client to connect to the <bacnetPlcServerTest.py> to random setup the 
+#              client to connect to the <bacnetRTUServerTest.py> to random setup the 
 #              source variables value then verify the result.
 # 
 # Author:      Yuancheng Liu
@@ -59,8 +59,8 @@ PARM_ID5 = 5
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-class PLCConnector(object):
-    """ PLC ladder logic class, this class will be inherited by your ladder diagram,
+class RTUConnector(object):
+    """ RTU ladder logic class, this class will be inherited by your ladder diagram,
         and you need to implement initLadderInfo() and runLadderLogic() function.
     """
     def __init__(self, parent, ladderName='TestLadderDiagram'):
@@ -82,7 +82,7 @@ class PLCConnector(object):
         val3 = self.client.readObjProperty(SERVER_ADDR, PARM_ID5)
         print("val3=%s" %str(val3))
         time.sleep(0.1)
-        showTestResult(round(val3, 1), round(val1 + val2, 1), "Read the PLC input and output value.")
+        showTestResult(round(val3, 1), round(val1 + val2, 1), "Read the RTU input and output value.")
         time.sleep(0.5)
         print("[_] Test write data to server input start")
         self.client.writeObjProperty(SERVER_ADDR, PARM_ID1, 1.0)
@@ -95,11 +95,11 @@ class PLCConnector(object):
         self.client.writeObjProperty(SERVER_ADDR, PARM_ID4, val2)
         time.sleep(2.1) # sleep more that 2 sec to wait the ladder execution finish.
         val3 = self.client.readObjProperty(SERVER_ADDR, PARM_ID3)
-        showTestResult(val1, round(val3, 1), "Write the PLC input 1 value.")
+        showTestResult(val1, round(val3, 1), "Write the RTU input 1 value.")
         val4 = self.client.readObjProperty(SERVER_ADDR, PARM_ID4)
-        showTestResult(val2, round(val4, 1), "Write the PLC input 2 value.")
+        showTestResult(val2, round(val4, 1), "Write the RTU input 2 value.")
         val5 = self.client.readObjProperty(SERVER_ADDR, PARM_ID5)
-        showTestResult(round(val5, 1), round(val1 + val2, 1), "Write the PLC input and output value.")
+        showTestResult(round(val5, 1), round(val1 + val2, 1), "Write the RTU input and output value.")
         time.sleep(0.5)
         print("[_] Test write data to server output start")
         self.client.writeObjProperty(SERVER_ADDR, PARM_ID2, 1.0)
@@ -110,7 +110,7 @@ class PLCConnector(object):
         self.client.writeObjProperty(SERVER_ADDR, PARM_ID5, val3)
         time.sleep(0.5)
         val4 = self.client.readObjProperty(SERVER_ADDR, PARM_ID5)
-        showTestResult(val3, round(val4, 1), "Write the PLC output value.")
+        showTestResult(val3, round(val4, 1), "Write the RTU output value.")
         # reset the overwrite flag and clean the connection
         self.client.writeObjProperty(SERVER_ADDR, PARM_ID1, 0)
         self.client.writeObjProperty(SERVER_ADDR, PARM_ID2, 0)
@@ -118,7 +118,7 @@ class PLCConnector(object):
         print("Client shut down successfully.")
 
 def main():
-    connector = PLCConnector(None)
+    connector = RTUConnector(None)
     connector.run()
 
 if __name__ == "__main__":
