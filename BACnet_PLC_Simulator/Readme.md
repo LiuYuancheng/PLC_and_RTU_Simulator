@@ -122,7 +122,74 @@ Properties are accessed through `ReadProperty` or `WriteProperty` services, the 
 
 ### 3. Design of The Virtual RTU
 
-In this section, I will use the workflow of how to create a building auto HVAC remote controlling system 
+This section describes the design of the Python-based Virtual Building Controller (RTU) using a central building HVAC automation system as a representative example. The objective is to demonstrate how a software-defined HVAC RTU can monitor simulated physical devices, process I/O signals, execute control logic, and integrate seamlessly with both **Level 0 field devices** and **Level 2 SCADA/HMI applications** through the **ISO 16484-5 BACnet protocol**.
+
+As illustrated in the system workflow diagram below, the virtual RTU architecture is organized into three primary OT layers:
+
+![](doc/img/s_07.png)
+
+- **Level 0 – OT Physical Field I/O Devices** : Simulated HVAC components and sensors, representing the physical environment.
+- **Level 1 – OT Controller Devices** : The Virtual HVAC RTU, responsible for communication, data processing, and control logic.
+- **Level 2 – OT Control Console / HMI** : BACnet-based wall thermostats, building management dashboards, and supervisory applications.
+
+The center of the architecture—Level 1 OT Controller Devices—represents the Virtual HVAC Center Controller (RTU). This RTU simulation consists of four tightly coupled functional modules: `Communication Module`, `BACnet Data Structure Module` and `RTU Auto Control Logic Module`. 
+
+#### 3.1 Communication Module
+
+The Communication Module acts as the external interface between the virtual RTU and the surrounding OT ecosystem. It enables bidirectional data exchange with both Level 0 field devices and Level 2 supervisory systems, as highlighted in the orange section of the architecture diagram.
+
+**3.2.1 UDP-Based Simulated Electrical Signal I/O**
+
+Use the UDP-based data exchange to simulate the electrical and fieldbus-based connections commonly used in HVAC systems (such as RS-232, RS-485, CAN bus, or discrete electrical signals).
+
+- **RTU Input (UDP Inbound)** : Simulated HVAC sensors—including room temperature, room humidity, and system operation status—periodically generate measurement data and transmit it to the RTU via UDP packets.
+- **RTU Output (UDP Outbound)** : The RTU sends control commands to simulated actuators such as `compressor`, `fan`, `heater`, `cooling pump` and `power unit`.
+
+**3.2.2 BACnet (BAC01) Communication Stack**
+
+On top of the simulated electrical I/O, the RTU embeds a **BACnet/IP communication stack**, implemented using the Python **BACpypes** library for browsing RTU BACnet objects, reading sensor and status values, writing control setpoints. The key characteristics include:
+
+- An embedded BACnet Server inside the RTU exposes internal I/O variables to the BACnet bus.
+- The Level 2 components such as wall-mounted HVAC thermostat controllers, building management dashboards, and data historians with BACnet Clients.
+- External building devices (e.g., people detection or motion radar sensors) may also publish or exchange data via BACnet.
+
+#### 3.2 BACnet Data Structure Module
+
+The BACnet Data Structure Module, represented by the dark green section in the diagram, defines how RTU internal variables are mapped into standardized BACnet objects and properties.
+
+**3.3.1 Read-Only BACnet Objects (Input Modeling)**
+
+Sensor readings and physical input states are exposed as read-only BACnet objects:
+
+- `BACnet Input Objects [R]` : Represent discrete or electrical signal states (e.g., on/off, fault status).
+- `BACnet Analog Objects [R]` : Represent continuous sensor values such as temperature, humidity and voltage...
+
+The HMI or thermostat controller will send the BACnet data fetch `ReadProperty`  quest to fetch data from the HVAC RTU. 
+
+**3.3.2 Writable BACnet Objects (Control Modeling)**
+
+Control commands and operational states are modeled using writable BACnet objects:
+
+- `BACnet Analog Objects [W]` : Used for control setpoints, thresholds, and operational parameters.
+- `BACnet Output Objects [W]` : Used to represent actuator states and control signals sent to HVAC components.
+
+ The writable object's properties `Present_Value` can be changed by the  BACnet data set `WriteProperty`  function.
+
+#### 3.3 RTU Auto Control Logic Module
+
+The RTU Auto Control Logic Module is a Python-based execution engine that implements the closed-loop control behavior of the virtual HVAC system. The control cycle operates as follows:
+
+1. Fetch input data from: `BACnet Input Objects [R]`, `BACnet Analog Objects [R]` and `BACnet Analog Objects [W]`.
+2. Execute predefined control logic rules.
+3. Update actuator states by writing results to `BACnet Output Objects [W]`.
+
+Below is an example control scenario : The module reads room temperature, HVAC mode (cooling/heating) and target setpoint from the thermostat. If the system is in cooling mode and the room temperature exceeds the setpoint, the compressor and cooling pump will be activated. The cooling process continues until the target temperature is reached. When the room temperature reach to the target If a people detection radar reports no occupants in the room, the compressor transitions to idle mode and the power unit switches to an energy-saving state.
+
+
+
+------
+
+
 
 
 
