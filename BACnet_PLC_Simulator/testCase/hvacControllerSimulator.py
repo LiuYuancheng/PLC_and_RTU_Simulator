@@ -59,7 +59,6 @@ PARM_ID3 = 3
 PARM_ID4 = 4
 PARM_ID5 = 5
 PARM_ID6 = 6
-
 PARM_ID11 = 11
 PARM_ID12 = 12
 PARM_ID13 = 13
@@ -72,16 +71,17 @@ class BACnetClientThread(threading.Thread):
     def __init__(self, port=47808):
         threading.Thread.__init__(self)
         self.client = BACnetComm.BACnetClient(DEV_ID, DEV_NAME, HVAC_IP, 47808)
-        self.terminate = False 
-        self.powerState = 0 
+        self.terminate = False
+        self.powerState = 0
         self.tempVal = 24.0
         self.humidityVal = 50
         self.compressVal = 1
         self.heaterVal = 1
         self.fanVal = 5
 
+    #-----------------------------------------------------------------------------
     def run(self):
-        print("start the data fetching loop")
+        print("Start the data fetching loop.")
         while not self.terminate:
             self.powerState = self.client.readObjProperty(HVAC_IP, PARM_ID13)
             time.sleep(0.1)
@@ -97,61 +97,56 @@ class BACnetClientThread(threading.Thread):
             time.sleep(2)
             print(str(self.getData()))
 
+    #-----------------------------------------------------------------------------
     def getData(self):
         return (self.powerState, self.tempVal, self.humidityVal, self.compressVal, self.heaterVal, self.fanVal)
 
     def setValue(self, parmId, value):
         self.client.writeObjProperty(HVAC_IP, parmId, value)
 
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 
-#-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
+
 class UIFrame(wx.Frame):
     """ Main UI frame window."""
     def __init__(self, parent, id, title):
         """ Init the UI and parameters """
         wx.Frame.__init__(self, parent, id, title, size=FRAME_SIZE)
-        #self.SetIcon(wx.Icon(gv.ICO_PATH))
-        # No boarder frame:
-        # wx.Frame.__init__(self, parent, id, title, style=wx.MINIMIZE_BOX | wx.STAY_ON_TOP)
-        # self.SetBackgroundColour(wx.Colour(30, 40, 62))
-        
-        self.powerState = 0 
+        self.SetBackgroundColour(wx.Colour('BLACK'))
+        # data read from the HVAC machine
+        self.powerState = 0
         self.tempVal = 24.0
         self.humidityVal = 50
         self.compressVal = 1
         self.heaterVal = 1
         self.fanVal = 5
-
+        # temp target send to the HVAC machine
         self.targetTemp = self.tempVal
-        
-        self.SetBackgroundColour(wx.Colour('BLACK'))
-        self.SetSizer(self._buidltUISizer())
-
+        self.SetSizer(self._buildUISizer())
+        # The BACnet connector module
         self.hvacConnector = BACnetClientThread()
         self.hvacConnector.start()
-
-        self.updateLock = False 
+        self.updateLock = False
         self.lastPeriodicTime = time.time()
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.periodic)
         self.timer.Start(500)
 
     #-----------------------------------------------------------------------------
-    def _buidltUISizer(self):
+    def _buildUISizer(self):
         """ Build the main UI sizer."""
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         # Add the time label
         font0 = wx.Font(12, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
         font1 = wx.Font(14, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
         font2 = wx.Font(24, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
-
         mainSizer.AddSpacer(5)
         self.timeLabel = wx.StaticText(self, label=time.strftime("%b %d %Y %H:%M:%S", time.localtime(time.time())))
         self.timeLabel.SetFont(font1)
         self.timeLabel.SetForegroundColour(wx.Colour(193, 229, 245))
         mainSizer.Add(self.timeLabel, flag=wx.CENTRE, border=2)
-        mainSizer.AddSpacer(5)
+        mainSizer.AddSpacer(10)
         mainSizer.Add(wx.StaticLine(self, wx.ID_ANY, size=(600, -1), style=wx.LI_HORIZONTAL), flag=wx.LEFT, border=2)
         mainSizer.AddSpacer(5)
         # Added the data display sizer
@@ -246,26 +241,26 @@ class UIFrame(wx.Frame):
         mainSizer.Add(hbox, flag=wx.LEFT, border=2)
         mainSizer.AddSpacer(5)
         mainSizer.Add(wx.StaticLine(self, wx.ID_ANY, size=(600, -1), style=wx.LI_HORIZONTAL), flag=wx.LEFT, border=2)
-        mainSizer.AddSpacer(5)
+        mainSizer.AddSpacer(10)
 
         gSizer = wx.GridSizer(1, 5, 2, 2)
-        pwrBt = wx.Button(self, label ='POWER', size =(110, 25))
+        pwrBt = wx.Button(self, label='POWER', size=(110, 25))
         pwrBt.Bind(wx.EVT_BUTTON, self.onPowerChange)
         gSizer.Add(pwrBt, flag=wx.CENTER, border=2)
 
-        coolBt = wx.Button(self, label ='COOLING', size =(110, 25))
+        coolBt = wx.Button(self, label='COOLING', size=(110, 25))
         coolBt.Bind(wx.EVT_BUTTON, self.onCoolingChange)
         gSizer.Add(coolBt, flag=wx.CENTER, border=2)
 
-        heatBt = wx.Button(self, label ='HEATING', size =(110, 25))
+        heatBt = wx.Button(self, label='HEATING', size=(110, 25))
         heatBt.Bind(wx.EVT_BUTTON, self.onHeatingChange)
         gSizer.Add(heatBt, flag=wx.CENTER, border=2)
 
-        fanDownBt = wx.Button(self, label ='FAN [-]', size =(110, 25))
+        fanDownBt = wx.Button(self, label='FAN [-]', size=(110, 25))
         fanDownBt.Bind(wx.EVT_BUTTON, self.onFanSpeedDown)
         gSizer.Add(fanDownBt, flag=wx.CENTER, border=2)
 
-        fanUpBt = wx.Button(self, label ='FAN [+]', size =(110, 25))
+        fanUpBt = wx.Button(self, label='FAN [+]', size=(110, 25))
         fanUpBt.Bind(wx.EVT_BUTTON, self.onFanSpeedUp)
         gSizer.Add(fanUpBt, flag=wx.CENTER, border=2)
 
@@ -307,7 +302,7 @@ class UIFrame(wx.Frame):
     # Prevent keyboard event taking focus from ctrl
     def on_focus_event(self, event):
         self.ctrl.SetFocus()
-        print(event, "-- send control request", event.Position)
+        print(event, "-- send temp control request", event.Position)
         event.Skip()
         self.hvacConnector.setValue(PARM_ID11, self.targetTemp)
 
@@ -318,7 +313,6 @@ class UIFrame(wx.Frame):
         if (not self.updateLock) and now - self.lastPeriodicTime >= 0.5:
             print("periodic(): main frame update at %s" % str(now))
             dataList = self.hvacConnector.getData()
-                    
             self.powerState = dataList[0]
             self.tempVal = dataList[1]
             self.humidityVal = dataList[2]
@@ -333,18 +327,14 @@ class UIFrame(wx.Frame):
             elif self.powerState == 1:
                 self.stateLabel.SetLabel('Cooling')
                 self.stateLabel.SetForegroundColour(wx.Colour('GREEN'))
-            else:
+            elif self.powerState == 2:
                 self.stateLabel.SetLabel('Heating')
                 self.stateLabel.SetForegroundColour(wx.Colour('YELLOW'))
-            
-            self.tempLabel.SetLabel(" %s °C" %str(round(self.tempVal, 1)))
-
-            self.humiLabel.SetLabel(" %s %%" %str(round(self.humidityVal, 1)))
+            self.tempLabel.SetLabel(" %s °C" % str(round(self.tempVal, 1)))
+            self.humiLabel.SetLabel(" %s %%" % str(round(self.humidityVal, 1)))
             stateStr = [' OFF ', 'IDLE', 'WORKING']
-            
-            self.compressLb.SetLabel("Compressor State : %s" %str(stateStr[int(self.compressVal)]))
-            self.heaterLb.SetLabel("Heater State : %s" %str(stateStr[int(self.heaterVal)]))
-
+            self.compressLb.SetLabel("Compressor State : %s" % str(stateStr[int(self.compressVal)]))
+            self.heaterLb.SetLabel("Heater State : %s" % str(stateStr[int(self.heaterVal)]))
             self.gauge.SetValue(int(self.fanVal))
             self.lastPeriodicTime = now
 
