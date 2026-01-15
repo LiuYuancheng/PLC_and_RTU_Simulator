@@ -2,15 +2,16 @@
 #-----------------------------------------------------------------------------
 # Name:        HvacMachineSimulator.py
 #
-# Purpose:     This module is a simple Heating Ventilation and Air Conditioning(HVAC)
-#              machine simulator with the basic auto control function based on 
-#              the controller's setting. It will host one BAC server which can 
-#              accept multiple clients(controller)'s control request.
+# Purpose:     This module is a simple building center Heating Ventilation and 
+#              Air Conditioning(HVAC) machine simulator program with the basic 
+#              auto control function based on the controller's setting. It will 
+#              host one BAC server which can  accept multiple clients(controller)'s 
+#              control request.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2026/01/10
-# Version:     v_0.0.2
+# Version:     v_0.0.3
 # Copyright:   Copyright (c) 2026 LiuYuancheng
 # License:     MIT License    
 #-----------------------------------------------------------------------------
@@ -46,6 +47,7 @@ def showTestResult(expectVal, val, message):
     rst = "[o] %s pass." %message if val == expectVal else "[x] %s error, expect:%s, get: %s." %(message, str(expectVal), str(val))
     print(rst)
 
+#-----------------------------------------------------------------------------
 DEV_ID = 123456
 DEV_NAME = "HVAC_Signal_Receiver"
 
@@ -88,39 +90,38 @@ class BACnetServerThread(threading.Thread):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class hvacSimulator(object):
-
     def __init__(self):
+        self.terminate = False
         self.server = BACnetServerThread()
-        # Init the input and output manual module flag 1 - True, 0 - False
         self.initModeFlag()
         self.initInternalParams()
         self.initControlParams()
-        self.terminate = False
-        time.sleep(1)
+        time.sleep(0.5)
         self.server.start()
 
     #-----------------------------------------------------------------------------
     def initModeFlag(self):
+        """ Init the input and output overwrite flag: 0-auto_mode, 1-manual_mode."""
         inputFlag = {
-                "objectName": "InputManualFlag",
-                "objectIdentifier": ("analogValue", PARM_ID1),
-                "presentValue": 0,
-                "description": "Input manual flag",
-                "units": "bool"
+            "objectName": "InputManualFlag",
+            "objectIdentifier": ("analogValue", PARM_ID1),
+            "presentValue": 0,
+            "description": "Input manual flag",
+            "units": "bool"
         }
         self.server.addParameter(inputFlag)
-
         outputFlag = {
-                "objectName": "OutputManualFlag",
-                "objectIdentifier": ("analogValue", PARM_ID2),
-                "presentValue": 0,
-                "description": "Output manual flag",
-                "units": "bool"
+            "objectName": "OutputManualFlag",
+            "objectIdentifier": ("analogValue", PARM_ID2),
+            "presentValue": 0,
+            "description": "Output manual flag",
+            "units": "bool"
         }
         self.server.addParameter(outputFlag)
 
     #-----------------------------------------------------------------------------
     def initInternalParams(self):
+        """ Init the internal sensor and components control parameters."""
         simpleAnalogVal = [
             {
                 "objectName": "Sensor_Temperature",
@@ -139,24 +140,24 @@ class hvacSimulator(object):
             {
                 "objectName": "Compressor_Power",
                 "objectIdentifier": ("analogValue", PARM_ID5),
-                "presentValue": 1, # 0 off, 1 idle, 2 working
+                "presentValue": 1,  # 0 off, 1 idle, 2 working
                 "description": "Atmospheric Pressure",
                 "units": "kilopascals"
             },
             {
                 "objectName": "Heater_Power",
                 "objectIdentifier": ("analogValue", PARM_ID6),
-                "presentValue": 0, # 0 off, 1 idle, 2 working
+                "presentValue": 0,  # 0 off, 1 idle, 2 working
                 "description": "Atmospheric Pressure",
                 "units": "kilopascals"
             }
         ]
-         
         for parameter in simpleAnalogVal:
             self.server.addParameter(parameter)
 
     #-----------------------------------------------------------------------------
     def initControlParams(self):
+        """ Init the thermostat controller's parameters."""
         simpleAnalogVal = [
             {
                 "objectName": "Control_Temperature",
@@ -168,14 +169,14 @@ class hvacSimulator(object):
             {
                 "objectName": "Control_Fan_Speed",
                 "objectIdentifier": ("analogValue", PARM_ID12),
-                "presentValue": 1,
+                "presentValue": 1, # range 0 - 10
                 "description": "Fan Speed",
                 "units": "level"
             },
             {
                 "objectName": "Hvac_Power",
                 "objectIdentifier": ("analogValue", PARM_ID13),
-                "presentValue": 1, # 0 off, 1 Cooling, 2 Heating
+                "presentValue": 1,  # 0 off, 1 Cooling, 2 Heating
                 "description": "HVAC Power Control",
                 "units": "bool"
             },
@@ -185,23 +186,31 @@ class hvacSimulator(object):
 
     #-----------------------------------------------------------------------------
     def periodic(self):
-        print("Start the BACnet RTU main periodic loop.")
+        print("Start the center HVAC main periodic loop.")
         while not self.terminate:
             # Hvac auto control logic
-            print("\n*** Start One HVAC Auto-Control Around...***")
+            print("\n*** Start One new HVAC Auto-Control Around...***")
             power = int(self.server.getObjValue("Hvac_Power"))
             print("Hvac_Power mode: %s" %str(('OFF', 'Cooling', 'Heating')[min(power, 2)]))
             time.sleep(0.5)
             ctrlTemp = round(self.server.getObjValue("Control_Temperature"), 1)
-            print("Control_Temperature: %s 'C" %str(ctrlTemp))
+            print("Control_Temperature: %s °C" % str(ctrlTemp))
             time.sleep(0.5)
-            sensorTemp = round(self.server.getObjValue("Sensor_Temperature"),1)
-            print("Sensor_Temperature: %s 'C" %str(sensorTemp))
+            sensorTemp = round(
+                self.server.getObjValue("Sensor_Temperature"), 1)
+            print("Sensor_Temperature: %s °C" % str(sensorTemp))
+            fanSpeed = int(self.server.getObjValue("Control_Fan_Speed"))
+            print("Control_Fan_Speed: lvl-%s" % str(fanSpeed))
+            time.sleep(0.5)
+            # set a random humanity value
+            self.server.setObjValue("Sensor_Humidity", round(random.uniform(20.0, 60.0),1))
             time.sleep(0.5)
             if power == 0:
                 print("HVAC is OFF, no auto control")
-                pass
-            elif power == 1: 
+                # Keep both heater and compressor off
+                self.server.setObjValue("Heater_Power", 0)
+                self.server.setObjValue("Compressor_Power", 0)
+            elif power == 1:
                 print("Start cooling process.")
                 print("[*] Make sure heater is off")
                 self.server.setObjValue("Heater_Power", 0)
@@ -231,7 +240,8 @@ class hvacSimulator(object):
 
     def stop(self):
         self.terminate = True
-
+        
+#-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 if __name__ == "__main__":
     havcObj = hvacSimulator()

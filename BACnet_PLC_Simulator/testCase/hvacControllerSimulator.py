@@ -1,10 +1,11 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:        HvacMachineSimulator.py
+# Name:        HvacControllerSimulator.py
 #
-# Purpose:     This module is a simple Heating Ventilation and Air Conditioning(HVAC)
-#              machine controller simulator with the UI to control the center
-#              HVAC machine
+# Purpose:     This module is a simple building center Heating Ventilation and 
+#              Air Conditioning(HVAC) wall thermostat controller simulator with 
+#              the UI and use BACnet to connect to the HVAC machine simulator 
+#              module <HvacMachineSimulator.py>
 #
 # Author:      Yuancheng Liu
 #
@@ -17,11 +18,10 @@
 import os
 import sys
 import time
-import random
 import threading
 
 import wx
-import knob
+import knob # use knob to build the temperature control panel https://github.com/kdschlosser/wxVolumeKnob
 
 print("Current working directory is : %s" % os.getcwd())
 DIR_PATH = dirpath = os.path.dirname(os.path.abspath(__file__))
@@ -48,6 +48,7 @@ def showTestResult(expectVal, val, message):
     rst = "[o] %s pass." %message if val == expectVal else "[x] %s error, expect:%s, get: %s." %(message, str(expectVal), str(val))
     print(rst)
 
+#-----------------------------------------------------------------------------
 DEV_ID = 123456
 DEV_NAME = "HVAC_Thermostat_Controller"
 HVAC_IP = '127.0.0.1'
@@ -65,7 +66,9 @@ PARM_ID13 = 13
 
 FRAME_SIZE = (600, 450)
 
-class BACnetServerThread(threading.Thread):
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+class BACnetClientThread(threading.Thread):
     def __init__(self, port=47808):
         threading.Thread.__init__(self)
         self.client = BACnetComm.BACnetClient(DEV_ID, DEV_NAME, HVAC_IP, 47808)
@@ -80,22 +83,26 @@ class BACnetServerThread(threading.Thread):
     def run(self):
         print("start the data fetching loop")
         while not self.terminate:
-            self.powerState = int(self.client.readObjProperty(HVAC_IP, PARM_ID13))
+            self.powerState = self.client.readObjProperty(HVAC_IP, PARM_ID13)
             time.sleep(0.1)
-            self.tempVal = round(self.client.readObjProperty(HVAC_IP, PARM_ID3), 1)
+            self.tempVal = self.client.readObjProperty(HVAC_IP, PARM_ID3)
             time.sleep(0.1)
-            self.humidityVal = round(self.client.readObjProperty(HVAC_IP, PARM_ID4), 1)
+            self.humidityVal = self.client.readObjProperty(HVAC_IP, PARM_ID4)
             time.sleep(0.1)
-            self.compressVal = int(self.client.readObjProperty(HVAC_IP, PARM_ID5))
+            self.compressVal = self.client.readObjProperty(HVAC_IP, PARM_ID5)
             time.sleep(0.1)
-            self.heaterVal = int(self.client.readObjProperty(HVAC_IP, PARM_ID6))
+            self.heaterVal = self.client.readObjProperty(HVAC_IP, PARM_ID6)
             time.sleep(0.1)
-            self.fanVal = int(self.client.readObjProperty(HVAC_IP, PARM_ID12))
+            self.fanVal = self.client.readObjProperty(HVAC_IP, PARM_ID12)
             time.sleep(2)
             print(str(self.getData()))
 
     def getData(self):
         return (self.powerState, self.tempVal, self.humidityVal, self.compressVal, self.heaterVal, self.fanVal)
+
+    def setValue(self, parmId, value):
+        self.client.writeObjProperty(HVAC_IP, parmId, value)
+
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -115,12 +122,14 @@ class UIFrame(wx.Frame):
         self.compressVal = 1
         self.heaterVal = 1
         self.fanVal = 5
+
+        self.targetTemp = self.tempVal
         
         self.SetBackgroundColour(wx.Colour('BLACK'))
         self.SetSizer(self._buidltUISizer())
 
-        self.hvacMachineClient = BACnetServerThread()
-        self.hvacMachineClient.start()
+        self.hvacConnector = BACnetClientThread()
+        self.hvacConnector.start()
 
         self.updateLock = False 
         self.lastPeriodicTime = time.time()
@@ -241,39 +250,74 @@ class UIFrame(wx.Frame):
 
         gSizer = wx.GridSizer(1, 5, 2, 2)
         pwrBt = wx.Button(self, label ='POWER', size =(110, 25))
+        pwrBt.Bind(wx.EVT_BUTTON, self.onPowerChange)
         gSizer.Add(pwrBt, flag=wx.CENTER, border=2)
 
         coolBt = wx.Button(self, label ='COOLING', size =(110, 25))
+        coolBt.Bind(wx.EVT_BUTTON, self.onCoolingChange)
         gSizer.Add(coolBt, flag=wx.CENTER, border=2)
 
         heatBt = wx.Button(self, label ='HEATING', size =(110, 25))
+        heatBt.Bind(wx.EVT_BUTTON, self.onHeatingChange)
         gSizer.Add(heatBt, flag=wx.CENTER, border=2)
 
         fanDownBt = wx.Button(self, label ='FAN [-]', size =(110, 25))
+        fanDownBt.Bind(wx.EVT_BUTTON, self.onFanSpeedDown)
         gSizer.Add(fanDownBt, flag=wx.CENTER, border=2)
 
         fanUpBt = wx.Button(self, label ='FAN [+]', size =(110, 25))
+        fanUpBt.Bind(wx.EVT_BUTTON, self.onFanSpeedUp)
         gSizer.Add(fanUpBt, flag=wx.CENTER, border=2)
 
         mainSizer.Add(gSizer, flag=wx.CENTER, border=2)
         return mainSizer
 
     #-----------------------------------------------------------------------------
+    def onPowerChange(self, event):
+        if self.powerState == 0:
+            print("onPowerChange: Power On")
+            self.hvacConnector.setValue(PARM_ID13, 1)
+        else:
+            print("onPowerChange: Power Off")
+            self.hvacConnector.setValue(PARM_ID13, 0)
+
+    #-----------------------------------------------------------------------------
+    def onCoolingChange(self, event):
+        if self.powerState != 1:
+            print("onCoolingChange: compressor on")
+            self.hvacConnector.setValue(PARM_ID13, 1)
+
+    def onHeatingChange(self,event):
+        if self.powerState != 2:
+            print("onHeatingChange: heater on")
+            self.hvacConnector.setValue(PARM_ID13, 2)
+
+    def onFanSpeedDown(self, event):
+        val = max(1, int((self.fanVal - 1)))
+        self.hvacConnector.setValue(PARM_ID12, val)
+
+    def onFanSpeedUp(self, event):
+        val = min(8, int((self.fanVal + 1)))
+        self.hvacConnector.setValue(PARM_ID12, val)
+
     def on_event(self, event):
         print (event, "Position:", event.Position)
+        self.targetTemp = round(event.Position, 1)
 
     # Prevent keyboard event taking focus from ctrl
     def on_focus_event(self, event):
         self.ctrl.SetFocus()
-        print(event, "send control request", event.Position)
+        print(event, "-- send control request", event.Position)
         event.Skip()
+        self.hvacConnector.setValue(PARM_ID11, self.targetTemp)
 
+    #-----------------------------------------------------------------------------
     def periodic(self, event):
         """ Call back every periodic time."""
         now = time.time()
         if (not self.updateLock) and now - self.lastPeriodicTime >= 0.5:
             print("periodic(): main frame update at %s" % str(now))
-            dataList = self.hvacMachineClient.getData()
+            dataList = self.hvacConnector.getData()
                     
             self.powerState = dataList[0]
             self.tempVal = dataList[1]
