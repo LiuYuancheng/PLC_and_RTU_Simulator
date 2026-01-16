@@ -183,22 +183,133 @@ The RTU Auto Control Logic Module is a Python-based execution engine that implem
 2. Execute predefined control logic rules.
 3. Update actuator states by writing results to `BACnet Output Objects [W]`.
 
-Below is an example control scenario : The module reads room temperature, HVAC mode (cooling/heating) and target setpoint from the thermostat. If the system is in cooling mode and the room temperature exceeds the setpoint, the compressor and cooling pump will be activated. The cooling process continues until the target temperature is reached. When the room temperature reach to the target If a people detection radar reports no occupants in the room, the compressor transitions to idle mode and the power unit switches to an energy-saving state.
+Below is an example control scenario for cooling the room: 
+
+![](doc/img/s_08.png)
+
+The HVAC RTU module reads room temperature, HVAC mode (cooling/heating) and target setpoint from the thermostat. If the system is in cooling mode and the room temperature exceeds the setpoint, the compressor and cooling pump will be activated. The cooling process continues until the target temperature is reached. When the room temperature reach to the target If a people detection radar reports no occupants in the room, the compressor transitions to idle mode and the power unit switches to an energy-saving state.
 
 
 
 ------
 
+### 4. Use Case and Usage Example
+
+This section provides a practical walkthrough for building and running a simplified BACnet-based Virtual RTU simulator using the Python modules included in the project. The example demonstrates how BACnet devices, RTUs, and controllers interact in a simulated building automation environment, using a central HVAC system as the representative use case.
+
+#### 4.1 Project Modules Overview
+
+The following Python modules form the baseline implementation of the BACnet RTU simulator:
+
+| Program File                          | Execution Env  | Description                                                  |
+| ------------------------------------- | -------------- | ------------------------------------------------------------ |
+| `src/BACnetComm.py`                   | Python 3.7.8 + | Core library implementing ISO 16484-5 BACnet client and server APIs. It provides BACnet object management and data/command exchange between RTUs and SCADA/HMI systems. |
+| `src/BACnetCommTest.py`               | Python 3.7.8 + | Test case program for `BACnetComm.py`. It launches a BACnet server in a sub-thread and initializes a client to validate data read/write operations and auto control logic execution. |
+| `testcase /bacnetRtuClientTest.py`    | Python 3.7.8 + | Example BACnet client program that simulates a SCADA or supervisory controller connecting to an RTU. |
+| `testcase /bacnetRtuServerTest.py`    | Python 3.7.8 + | Example BACnet server program that simulates a BACnet RTU device. |
+| `testcase/HvacMachineSimulator.py`    | Python 3.7.8 + | Central HVAC machine simulator representing a physical components simulator combined with the BACnet-enabled RTU. |
+| `testcase/HvacControllerSimulator.py` | Python 3.7.8 + | Wall-mounted HVAC thermostat controller simulator with graphical UI. |
+
+To build a simple RTU and controller system, you can refer to the example test cases available in the repository: https://github.com/LiuYuancheng/PLC_and_RTU_Simulator/tree/main/BACnet_PLC_Simulator/testCase
+
+#### 4.2 Usage Example: HVAC System Simulation
+
+In this HVAC use case example, a central HVAC RTU operates in automatic control mode while one or more thermostat remote controllers connect to it via BACnet to monitor sensor data and issue control commands.
+
+**4.2.1 HVAC Machine Simulator (Virtual RTU)**
+
+For the HVAC machine simulator module : https://github.com/LiuYuancheng/PLC_and_RTU_Simulator/blob/main/BACnet_PLC_Simulator/testCase/hvacMachineSimulator.py, represents a Level 1 OT controller combine with part of level0 physical components that exposes BACnet objects and executes internal HVAC control logic.
+
+The Sensor data such as room humidity and temperature are modeled as read-only BACnet Analog Value objects. These objects are defined in the `initInternalParams()` function as shown in the below example:
+
+```python
+{
+    "objectName": "Sensor_Humidity",
+    "objectIdentifier": ("analogValue", PARM_ID4),
+    "presentValue": 45.0,
+    "description": "Room Humidity",
+    "units": "percent"
+}...
+```
+
+The Control parameters and actuator states are modeled as writable BACnet objects, defined in the `initControlParams()` function as shown in the below example : 
+
+```python
+{
+    "objectName": "Control_Fan_Speed",
+    "objectIdentifier": ("analogValue", PARM_ID12),
+    "presentValue": 1, # range 0 - 10
+    "description": "Fan Speed",
+    "units": "level"
+}...
+```
+
+The BACnet server runs in a sub-thread, continuously handling requests from multiple thermostat controllers. In parallel, the main HVAC control thread executes a periodic control loop responsible for managing: compressor, heater, cooling pump and fan. Below is a simplified compressor control logic example: 
+
+```python
+elif power == 1:
+    print("Start cooling process.")
+    print("[*] Make sure heater is off")
+    self.server.setObjValue("Heater_Power", 0)
+    if sensorTemp > ctrlTemp:
+        print("[*] Sensor_Temperature > Control_Temperature, set compressor [power on]")
+        self.server.setObjValue("Compressor_Power", 2)
+        newSensorTemp = sensorTemp - 0.1 # update the room temp sensor value when cooling pump activated.
+        self.server.setObjValue("Sensor_Temperature", newSensorTemp)
+    else:
+        print("[*] Sensor_Temperature <= Control_Temperature, set compressor [idle]")
+        self.server.setObjValue("Compressor_Power", 1)
+```
+
+
+
+**4.2.2 Wall-Mounted HVAC Thermostat Controller**
+
+For the HVAC thermostat remote controllers simulator module: https://github.com/LiuYuancheng/PLC_and_RTU_Simulator/blob/main/BACnet_PLC_Simulator/testCase/hvacControllerSimulator.py. This module represents a Level 2 OT control interface, providing a graphical UI for monitoring and control as shown below:
+
+![](doc/img/s_10.png)
+
+Each thermostat controller starts a BACnet client sub-thread that periodically connects to the HVAC RTU to fetch sensor data and issue control commands. To connect to the simulated  HVAC machine,  set the HVAC IP address and the thermostat remote controllers register to the HVAC as shown below:
+
+```python
+DEV_ID = 123456
+DEV_NAME = "HVAC_Thermostat_Controller_01"
+HVAC_IP = '127.0.0.1'
+```
+
+Upon startup, the thermostat attempts to register and communicate with the target HVAC RTU. Once the connection is established:
+
+- sensor values are displayed in the left information panel
+- users can adjust the temperature setpoint using the rotary control knob
+- HVAC operating mode and fan speed can be selected via UI buttons
+
+When the user confirms the settings, the BACnet client sends corresponding `WriteProperty` requests to the HVAC RTU, triggering immediate control logic execution.
+
+
+
+------
+
+### 5.Conclusion and Reference
 
 
 
 
-https://breezecontrols.com/product-category/bacnet-thermostat/?gad_source=1&gad_campaignid=21081655336&gbraid=0AAAAAqHBHJ_z39_2CQAMXZRKkUAiNXLHt&gclid=Cj0KCQiA1JLLBhCDARIsAAVfy7j4DeFjZ1aXiF3JMAuehML2u1xRfXH74sITK7QjAnp_K2ZjRrwK4HoaAtsrEALw_wcB
 
-https://www.optigo.net/whats-in-a-bacnet-packet-capture/
+#### 5.2 Project Reference
 
-https://www.emqx.com/en/blog/bacnet-protocol-basic-concepts-structure-obejct-model-explained
+- https://breezecontrols.com/product-category/bacnet-thermostat/?gad_source=1&gad_campaignid=21081655336&gbraid=0AAAAAqHBHJ_z39_2CQAMXZRKkUAiNXLHt&gclid=Cj0KCQiA1JLLBhCDARIsAAVfy7j4DeFjZ1aXiF3JMAuehML2u1xRfXH74sITK7QjAnp_K2ZjRrwK4HoaAtsrEALw_wcB
 
-https://youtu.be/xxZrl2InHuM?si=bPPfYq2hx5O53adJ
+- https://www.optigo.net/whats-in-a-bacnet-packet-capture/
 
-https://www.majestic-ac.com/how-a-residential-hvac-system-works-a-homeowners-guide/
+- https://www.emqx.com/en/blog/bacnet-protocol-basic-concepts-structure-obejct-model-explained
+
+- https://youtu.be/xxZrl2InHuM?si=bPPfYq2hx5O53adJ
+
+- https://www.majestic-ac.com/how-a-residential-hvac-system-works-a-homeowners-guide/
+- https://github.com/kdschlosser/wxVolumeKnob
+
+
+
+------
+
+>  last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 16/01/2026 if you have any problem, please send me a message. 

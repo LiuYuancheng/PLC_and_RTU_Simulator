@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #-----------------------------------------------------------------------------
-# Name:        BACCommTest.py
+# Name:        BACnetCommTest.py
 #
 # Purpose:     This module is the testcase program for the ISO 16484-5 BACnet comm
 #              library <BACnetComm.py>, it will start a server in sub-thread and

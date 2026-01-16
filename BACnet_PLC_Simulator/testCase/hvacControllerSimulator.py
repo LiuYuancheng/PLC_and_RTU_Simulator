@@ -106,8 +106,6 @@ class BACnetClientThread(threading.Thread):
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-
-
 class UIFrame(wx.Frame):
     """ Main UI frame window."""
     def __init__(self, parent, id, title):
