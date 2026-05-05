@@ -1,5 +1,7 @@
 # Python Visual Building Controller (RTU) with ISO 16484-5 BACnet to Simulate Building HVAC System
 
+**us English** | [cn 中文](Readme_CN.md)
+
 **Project Design Purpose** : In this project, I extended the [Python-Based virtual Remote Terminal Unit Simulator System](https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc) (which interfaced to Lvl3-OT SCADA system via `Modbus-TCP`, `Siemens-S7Comm`, `IEC 60870-5-104` and `IEC 62541 OPC-UA-TCP`)  by adding the support for **ISO 16484-5 BACnet** (Building Automation and Control Networks) protocol. In this article I will also show the detailed usage of the RTU library frame work to simulate one automated HVAC controlling system.
 
 The enhanced virtual RTU simulator developed in this project focuses on modeling the core behaviors of BACnet devices and controllers, including data acquisition, value exchange, processing, and automated control according to the ISO 16484-5 specification which can help to build the OT components in cyber range. This project delivers three key capabilities:
