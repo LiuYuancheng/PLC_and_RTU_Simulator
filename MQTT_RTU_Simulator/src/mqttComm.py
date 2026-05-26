@@ -6,7 +6,7 @@
 #              Telemetry Transport) broker and client communication API to test 
 #              or simulate the data flow connection between RTU/IoT/IIoT device 
 #              between the SCADA system. The module is implemented based on the 
-#              python MQTT Lib :  https://eclipse.dev/paho/files/paho.mqtt.python/html/client.html
+#              python MQTT Lib : https://eclipse.dev/paho/files/paho.mqtt.python/html/client.html
 #
 # Author:      Yuancheng Liu
 #
@@ -28,7 +28,9 @@ MQTT_PORT = 1883 # Default port number
 # MQTT packet type constants (currently what we need, may add more in the future)
 CONNECT     = 0x10
 CONNACK     = 0x20
-PUBLISH     = 0x30
+PUBLISH_Q0  = 0x30  # QoS level 0 currently we use the QoS level0 DUP = 0, Retain = 0
+PUBLISH_Q1  = 0x32  # QoS level 1
+PUBLISH_Q2  = 0x34  # QoS level 2
 PUBACK      = 0x40
 SUBSCRIBE   = 0x82
 SUBACK      = 0x90
@@ -121,7 +123,7 @@ class ClientHandler(threading.Thread):
             # If subscribing to parameters/get/<name>, deliver current value immediately
             if topic.startswith("parameters/get/"):
                 name = topic[len("parameters/get/"):]
-                value = self.parent.getParamVal(name)
+                value = self.parent.getParmVal(name)
                 if value is not None:
                     self.parent.deliver(
                         "parameters/value/%s" % name,
@@ -145,6 +147,8 @@ class ClientHandler(threading.Thread):
         if topic.startswith("parameters/set/"):
             name = topic[len("parameters/set/"):]
             self.parent.setParmVal(name, message)
+            # execute the control logic if value modified 
+            self.parent.executeLogic() 
             # Broadcast new value to subscribers of parameters/value/<name>
             self.parent.deliver(
                 "parameters/value/%s" % name,
@@ -153,7 +157,7 @@ class ClientHandler(threading.Thread):
         elif topic.startswith("parameters/get/"):
             # A client can also request a value via publish (optional pattern)
             name = topic[len("parameters/get/"):]
-            value = self.parent.getParamVal(name)
+            value = self.parent.getParmVal(name)
             if value is not None:
                 self.parent.deliver(
                     "parameters/value/%s" % name ,
@@ -169,12 +173,12 @@ class ClientHandler(threading.Thread):
             while True:
                 ptype, payload = self._recv_packet()
                 #print("Subscribe 0x%02X" % SUBSCRIBE)
-                print("Received packet type ptype: 0x%02X  base: 0x%02X" %(ptype, base_type))
+                print("Received packet type ptype: 0x%02X " % ptype)
                 if ptype == CONNECT:
                     self._handle_connect(payload)
                 elif ptype == SUBSCRIBE:
                     self._handle_subscribe(payload)
-                elif ptype == PUBLISH:
+                elif ptype == PUBLISH_Q0 or ptype == PUBLISH_Q1 or ptype == PUBLISH_Q2:
                     self._handle_publish(ptype, payload)
                 elif ptype == PINGREQ:
                     self.sock.sendall(bytes([PINGRESP, 0x00]))
@@ -195,7 +199,7 @@ class ClientHandler(threading.Thread):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class MQTTBroker(object):
-    def __init__(self, host="0.0.0.0", port = MQTT_PORT):
+    def __init__(self, host="0.0.0.0", port=MQTT_PORT):
         self.host = host
         self.port = port
         self.parm = {} # parm is a dictionary to store the MQTT broker parameters
@@ -203,7 +207,7 @@ class MQTTBroker(object):
         self.serverSock = None
         self.terminate = False
 
-    def getParamVal(self, name):
+    def getParmVal(self, name):
         return self.parm[name] if name in self.parm.keys() else None 
 
     def addParam(self, name, value=None):
@@ -229,13 +233,19 @@ class MQTTBroker(object):
         # message body
         encoded = topic.encode("utf-8")
         body = struct.pack("!H", len(encoded)) + encoded + payload
-        packet = bytes([PUBLISH]) + _encode_remaining_length(len(body)) + body
+        packet = bytes([PUBLISH_Q0]) + _encode_remaining_length(len(body)) + body
         targets = list(self.subscription.get(topic, []))
         for sock in targets:
             try:
                 sock.sendall(packet)
             except Exception as err:
                 print("deliver() - Error to deliver data :%s" %str(err))
+
+    def executeLogic(self):
+        """ Interface function in the main loop for the MQTT broker to execute 
+            the control logic.
+        """
+        pass
 
     def run(self):
         self._server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -323,6 +333,7 @@ class MQTTClient(object):
         self._mqtt.disconnect()
         print("Disconnected from broker %s", self.broker_ip)
 
+    #-----------------------------------------------------------------------------
     def getParmVal(self, name: str):
         """
             Request the current value of *name* from the broker.
@@ -344,11 +355,13 @@ class MQTTClient(object):
         with self._lock:
             return self._values.get(name)
 
+    #-----------------------------------------------------------------------------
     def setParmVal(self, name: str, value: str):
         """Publish a new value for *name* to the broker."""
-        self._mqtt.publish("parameters/set/%s" %str(name), payload=str(value), qos=1)
+        self._mqtt.publish("parameters/set/%s" %str(name), payload=str(value), qos=0)
         print("SET  %s = %r  for  broker %s" % (name, value, self.broker_ip))
 
+    #-----------------------------------------------------------------------------
     def watch(self, name: str, callback=None, block: bool = True):
         """
             Subscribe to live updates of *name*.
@@ -370,6 +383,7 @@ class MQTTClient(object):
             except KeyboardInterrupt:
                 print("Stopped watching %s" %str(name))
 
+    #-----------------------------------------------------------------------------
     def watch_all(self, callback=None, block: bool = True):
         """
             Subscribe to live updates for ALL parameters (wildcard).
