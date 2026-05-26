@@ -21,7 +21,7 @@ MQTT Broker
                         │  BrokerState             │
                         │  parameters{}            │
                         │  subscriptions{}         │
-                        │                          ├──────────── Client B
+                        │  executeLogic()          ├──────────── Client B
    Client A ────────────┤  per-client thread each  ├──────────── Client N
                         └──────────────────────────┘
 
@@ -30,7 +30,6 @@ MQTT Broker
 import time
 import threading
 import mqttComm
-
 
 def showTestResult(expectVal, val, message):
     rst = "[o] %s pass." %message if val == expectVal else "[x] %s error, expect:%s, get: %s." %(message, str(expectVal), str(val))
@@ -113,7 +112,6 @@ def main():
     showTestResult('on', val3, "client read point value3")
     val4 = clientB.getParmVal('fanSpeed')
     showTestResult('50', val4, "client read point value3")
-
 
     clientA.disconnect()
     clientB.disconnect()

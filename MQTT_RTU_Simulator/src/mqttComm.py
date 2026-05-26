@@ -2,16 +2,16 @@
 #-----------------------------------------------------------------------------
 # Name:        mqttComm.py
 #
-# Purpose:     This module will provide the IEC-20922 MQTT (Message Queuing 
+# Purpose:     This module will provide the ISO/IEC-20922 MQTT (Message Queuing 
 #              Telemetry Transport) broker and client communication API to test 
-#              or simulate the data flow connection between RTU/IoT/IIoT device 
-#              between the SCADA system. The module is implemented based on the 
-#              python MQTT Lib : https://eclipse.dev/paho/files/paho.mqtt.python/html/client.html
+#              or simulate the data flow connection between RTU/IoT/IIoT devices 
+#              and the SCADA system. The module is implemented based on the python 
+#              paho-mqtt Lib : https://eclipse.dev/paho/files/paho.mqtt.python/html/client.html
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2026/05/24
-# Version:     v_0.0.1
+# Version:     v_0.0.2
 # Copyright:   Copyright (c) 2026 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -21,7 +21,6 @@ import socket
 import struct
 import threading
 import paho.mqtt.client as mqtt
-
 
 MQTT_PORT = 1883 # Default port number 
 
@@ -41,20 +40,18 @@ DISCONNECT  = 0xE0
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 def _encode_remaining_length(length: int) -> bytes:
-    """Encode an integer as MQTT variable-length remaining-length bytes."""
+    """ Encode an integer as MQTT variable-length remaining-length bytes. """
     result = bytearray()
     while True:
         byte = length & 0x7F
         length >>= 7
-        if length:
-            byte |= 0x80
+        if length: byte |= 0x80
         result.append(byte)
-        if not length:
-            break
+        if not length: break
     return bytes(result)
 
 def _read_utf8(data: bytes, offset: int):
-    """Read a 2-byte-prefixed UTF-8 string from data. Return (string, new_offset)."""
+    """ Read a 2-byte-prefixed UTF-8 string from data. Return (string, new_offset)."""
     length = struct.unpack_from("!H", data, offset)[0]
     offset += 2
     return data[offset:offset + length].decode("utf-8"), offset + length
@@ -62,20 +59,26 @@ def _read_utf8(data: bytes, offset: int):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class ClientHandler(threading.Thread):
+    """ The handler start with a new thread to response the client request. """
     def __init__(self, parent, sock: socket.socket, addr):
+        """ Init the client handler with the socket and address. 
+            Args:
+                parent (obj): The parent MQTT broker object.
+                sock (socket.socket): The TCP socket when a new connection is accepted.
+                addr (tuple): The client address.
+        """
         super().__init__(daemon=True)
         self.parent = parent
-        self.sock = sock
+        self.sock = sock 
         self.addr = addr
         self.client_id = str(addr)
 
     #-----------------------------------------------------------------------------
-    def _recv_exact(self, n: int) -> bytes:
+    def _recv_exact(self, n:int):
         buf = b""
         while len(buf) < n:
             chunk = self.sock.recv(n - len(buf))
-            if not chunk:
-                raise ConnectionResetError("Client disconnected")
+            if not chunk: raise ConnectionResetError("Client disconnected")
             buf += chunk
         return buf
 
@@ -90,8 +93,7 @@ class ClientHandler(threading.Thread):
             b = self._recv_exact(1)[0]
             length += (b & 0x7F) * multiplier
             multiplier *= 128
-            if not (b & 0x80):
-                break
+            if not (b & 0x80): break
         payload = self._recv_exact(length) if length else b""
         return ptype, payload
 
@@ -105,7 +107,7 @@ class ClientHandler(threading.Thread):
         keepalive = struct.unpack_from("!H", payload, offset)[0]; offset += 2
         client_id, offset = _read_utf8(payload, offset)
         self.client_id = client_id or str(self.addr)
-        print("INFO:Client connected: id=%r from %s", self.client_id, self.addr)
+        print("INFO : Client connected: id=%r from %s", self.client_id, self.addr)
         # Send CONNACK (session present=0, return code=0 accepted)
         self.sock.sendall(bytes([CONNACK, 0x02, 0x00, 0x00]))
 
@@ -116,20 +118,18 @@ class ClientHandler(threading.Thread):
         return_codes = []
         while offset < len(payload):
             topic, offset = _read_utf8(payload, offset)
-            qos = payload[offset]; offset += 1
+            qos = payload[offset]
+            offset += 1
             self.parent.subscribeClient(topic, self.sock)
             return_codes.append(min(qos, 0))   # grant QoS 0
-            print("Client %r subscribed to %r", self.client_id, topic)
+            print("INFO : Client %r subscribed to %r", self.client_id, topic)
             # If subscribing to parameters/get/<name>, deliver current value immediately
             if topic.startswith("parameters/get/"):
                 name = topic[len("parameters/get/"):]
                 value = self.parent.getParmVal(name)
                 if value is not None:
-                    self.parent.deliver(
-                        "parameters/value/%s" % name,
-                        value.encode("utf-8"),
-                    )
-        # SUBACK
+                    self.parent.deliver("parameters/value/%s" % name, value.encode("utf-8"))
+        # Send SUBACK
         body = struct.pack("!H", packet_id) + bytes(return_codes)
         self.sock.sendall(bytes([SUBACK]) + _encode_remaining_length(len(body)) + body)
 
@@ -150,19 +150,13 @@ class ClientHandler(threading.Thread):
             # execute the control logic if value modified 
             self.parent.executeLogic() 
             # Broadcast new value to subscribers of parameters/value/<name>
-            self.parent.deliver(
-                "parameters/value/%s" % name,
-                message.encode("utf-8"),
-            )
+            self.parent.deliver("parameters/value/%s" % name, message.encode("utf-8"))
         elif topic.startswith("parameters/get/"):
             # A client can also request a value via publish (optional pattern)
             name = topic[len("parameters/get/"):]
             value = self.parent.getParmVal(name)
             if value is not None:
-                self.parent.deliver(
-                    "parameters/value/%s" % name ,
-                    value.encode("utf-8"),
-                )
+                self.parent.deliver("parameters/value/%s" % name, value.encode("utf-8"))
         else:
             # Generic topic forwarding (pass-through pub/sub)
             self.parent.deliver(topic, payload[offset:])
@@ -199,6 +193,7 @@ class ClientHandler(threading.Thread):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class MQTTBroker(object):
+    """ The MQTT Broker Class. """
     def __init__(self, host="0.0.0.0", port=MQTT_PORT):
         self.host = host
         self.port = port
@@ -207,11 +202,13 @@ class MQTTBroker(object):
         self.serverSock = None
         self.terminate = False
 
-    def getParmVal(self, name):
-        return self.parm[name] if name in self.parm.keys() else None 
-
+    #-----------------------------------------------------------------------------
     def addParam(self, name, value=None):
         self.parm[name] = value
+    
+    
+    def getParmVal(self, name):
+        return self.parm[name] if name in self.parm.keys() else None 
 
     def setParmVal(self, name, value):
         if name in self.parm.keys():
@@ -241,39 +238,45 @@ class MQTTBroker(object):
             except Exception as err:
                 print("deliver() - Error to deliver data :%s" %str(err))
 
+    #-----------------------------------------------------------------------------
     def executeLogic(self):
         """ Interface function in the main loop for the MQTT broker to execute 
             the control logic.
         """
         pass
 
+    #-----------------------------------------------------------------------------
     def run(self):
         self._server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._server_sock.bind((self.host, self.port))
         self._server_sock.listen(50)
-        print("MQTT Broker is listening on port %s: %d" %(self.host, self.port))
+        print("INFO : MQTT Broker is listening on port %s: %d" %(self.host, self.port))
         try:
             while not self.terminate:
                 client_sock, addr = self._server_sock.accept()
-                ClientHandler(self, client_sock, addr).start()
+                newHandler = ClientHandler(self, client_sock, addr)
+                newHandler.start()
         except KeyboardInterrupt:
             print("Broker shutting down…")
         finally:
-            if self._server_sock:
-                self._server_sock.close()
+            if self._server_sock: self._server_sock.close()
+
+    def stop(self):
+        self.terminate = True
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class MQTTClient(object):
+    """ The MQTT Client class."""
 
-    def __init__(self, id, broker_ip:str, port = MQTT_PORT, timeout = 5.0):
+    def __init__(self, id, broker_ip:str, port=MQTT_PORT, timeout=5.0):
         self.id = id
         self.broker_ip = broker_ip
         self.port = port
         self.timeout = timeout
 
-        self._mqtt = mqtt.Client(client_id=str(self.id) or "DEF_ID", protocol=mqtt.MQTTv311)
+        self._mqtt = mqtt.Client(client_id=str(self.id), protocol=mqtt.MQTTv311)
         self._mqtt.on_connect    = self._on_connect
         self._mqtt.on_message    = self._on_message
         self._mqtt.on_disconnect = self._on_disconnect
@@ -299,6 +302,7 @@ class MQTTClient(object):
 
     #-----------------------------------------------------------------------------
     def _on_message(self, client, userdata, msg):
+        """ Handle message call back."""
         topic = str(msg.topic)
         payload = str(msg.payload.decode("utf-8", errors="replace"))
         # Extract parameter name from  parameters/value/<name>
@@ -335,10 +339,8 @@ class MQTTClient(object):
 
     #-----------------------------------------------------------------------------
     def getParmVal(self, name: str):
-        """
-            Request the current value of *name* from the broker.
-            Blocks up to ``self.timeout`` seconds and returns the value string,
-            or None on timeout.
+        """ Request the current value of parameter = name from the broker. Blocks up 
+            to self.timeout seconds and returns the value string, or None on timeout.
         """
         evt = threading.Event()
         with self._lock: self._pending[name] = evt
@@ -357,16 +359,14 @@ class MQTTClient(object):
 
     #-----------------------------------------------------------------------------
     def setParmVal(self, name: str, value: str):
-        """Publish a new value for *name* to the broker."""
+        """Publish a new value for parameter = name to the broker."""
         self._mqtt.publish("parameters/set/%s" %str(name), payload=str(value), qos=0)
         print("SET  %s = %r  for  broker %s" % (name, value, self.broker_ip))
 
     #-----------------------------------------------------------------------------
     def watch(self, name: str, callback=None, block: bool = True):
-        """
-            Subscribe to live updates of *name*.
-            If *callback* is provided it is called as ``callback(name, value)`` on
-            every change.  Otherwise changes are printed to stdout.
+        """ Subscribe to live updates of *name*. If *callback* is provided it is called as 
+            callback(name, value) on every change.  Otherwise changes are printed to stdout.
             If *block* is True the call blocks until KeyboardInterrupt.
         """
         if callback is None:
@@ -385,9 +385,8 @@ class MQTTClient(object):
 
     #-----------------------------------------------------------------------------
     def watch_all(self, callback=None, block: bool = True):
-        """
-            Subscribe to live updates for ALL parameters (wildcard).
-            Calls ``callback(name, value)`` on every change.
+        """ Subscribe to live updates for ALL parameters (wildcard). Calls callback(name, value) 
+            on every change.
         """
         if callback is None:
             callback = lambda n, v: print("%s = %s" % (str(n), str(v)))
