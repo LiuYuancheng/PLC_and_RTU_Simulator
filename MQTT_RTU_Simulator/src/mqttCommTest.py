@@ -9,22 +9,27 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2026/05/25
-# Version:     v_0.0.1
+# Version:     v_0.0.2
 # Copyright:   Copyright (c) 2026 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
 
 """
+Program Design: 
 
-MQTT Broker 
-                        ┌──────────────────────────┐
-                        │  BrokerState             │
-                        │  parameters{}            │
-                        │  subscriptions{}         │
-                        │  executeLogic()          ├──────────── Client B
-   Client A ────────────┤  per-client thread each  ├──────────── Client N
-                        └──────────────────────────┘
+    The test case module will start a broker with a auto fan control logic inside 
+    and start one client(A) to simulate the temperature sensor to publish the temp
+    value, then the client-B simulate the HMI/Fun controller to subscribe the fan
+    state display and control.
 
+    MQTT Broker and client :
+                            ┌──────────────────────────┐
+                            │  BrokerState             │
+                            │  parameters{}            │
+                            │  subscriptions{}         │
+                            │  executeLogic()          ├──────────── Client B
+       Client A ────────────┤  per-client thread each  ├──────────── Client N
+                            └──────────────────────────┘
 """
 
 import time
@@ -38,14 +43,16 @@ def showTestResult(expectVal, val, message):
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 class TestBroker(mqttComm.MQTTBroker):
-    """ Test broker class, it will start a broker in sub-thread and multiple clients to test the data read and transmit. """
+    """ Test broker class, it will start a broker in sub-thread and multiple clients 
+        to test the data read and transmit. 
+    """
 
     def __init__(self, brokerName='testBroker', brokerPort=1883):
         super().__init__()
         self.mqttClients = []
 
     def executeLogic(self):
-        """ The fan control logic. """
+        """ The fan control logic overwrite the executeLogic in mqttComm.MQTTBroker. """
         print("> execute the control logic")
         temp = float(self.getParmVal('temperature'))
         mode = self.getParmVal('mode')
@@ -64,10 +71,10 @@ class MQTTbrokerThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.mqttBroker = TestBroker()
-        self.mqttBroker.addParam('temperature', '25.0')
-        self.mqttBroker.addParam('mode', 'manual')
-        self.mqttBroker.addParam('fan', 'off')
-        self.mqttBroker.addParam('fanSpeed', '0')
+        self.mqttBroker.addParm('temperature', '25.0')
+        self.mqttBroker.addParm('mode', 'manual')
+        self.mqttBroker.addParm('fan', 'off')
+        self.mqttBroker.addParm('fanSpeed', '0')
 
     def run(self):
         print("Starting MQTT broker thread.")
@@ -100,19 +107,20 @@ def main():
     clientA.setParmVal('temperature', '60.0')
     time.sleep(0.3)
     val1 = clientB.getParmVal('temperature')
-    showTestResult('60.0', val1, "client read point value3")
+    showTestResult('60.0', val1, "client read temp value")
 
     index += 1
     print("\nTest-%d Change the mode value" % index)
     clientA.setParmVal('mode', 'auto')
     time.sleep(0.3)
     val2 = clientB.getParmVal('mode')
-    showTestResult('auto', val2, "client read point value3")
+    showTestResult('auto', val2, "client mode point value")
     val3 = clientB.getParmVal('fan')
-    showTestResult('on', val3, "client read point value3")
+    showTestResult('on', val3, "client fan state value")
     val4 = clientB.getParmVal('fanSpeed')
-    showTestResult('50', val4, "client read point value3")
+    showTestResult('50', val4, "client fan speed value")
 
+    print("-> Disconnect all the client.")
     clientA.disconnect()
     clientB.disconnect()
 
