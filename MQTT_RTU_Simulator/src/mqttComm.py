@@ -208,8 +208,6 @@ class ClientHandler(threading.Thread):
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-
-
 class MQTTBroker(object):
     """ The MQTT Broker class. """
     def __init__(self, host="0.0.0.0", port=MQTT_PORT):

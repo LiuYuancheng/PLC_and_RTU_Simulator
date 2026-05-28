@@ -19,7 +19,6 @@ import os
 import sys
 import time
 import random
-import asyncio
 import threading
 
 print("Current working directory is : %s" % os.getcwd())
