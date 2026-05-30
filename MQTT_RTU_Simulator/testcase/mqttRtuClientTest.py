@@ -92,7 +92,7 @@ class RtuConnector(object):
 
         #Reset the value 
         self.client.setParmVal('mode', 'manual')
-        time.sleep(0.5)
+        time.sleep(2)
         self.client.setParmVal('fan', 'off')
         self.client.setParmVal('fanSpeed', '0')
         self.client.disconnect()
