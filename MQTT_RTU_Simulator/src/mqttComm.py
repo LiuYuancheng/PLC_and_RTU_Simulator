@@ -16,7 +16,15 @@
 # Copyright:   Copyright (c) 2026 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+"""_summary_
 
+Raises:
+    ConnectionResetError: _description_
+    TimeoutError: _description_
+
+Returns:
+    _type_: _description_
+"""
 import time
 import socket
 import struct
