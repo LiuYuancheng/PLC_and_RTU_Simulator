@@ -28,9 +28,9 @@ MQTT_PORT = 1883 # Default mqtt port number
 # MQTT packet type constants (currently what we need, may add more in the future)
 CONNECT     = 0x10
 CONNACK     = 0x20
-PUBLISH_Q0  = 0x30  # QoS level 0 currently we use the QoS level0 DUP = 0, Retain = 0
-PUBLISH_Q1  = 0x32  # QoS level 1
-PUBLISH_Q2  = 0x34  # QoS level 2
+PUBLISH_Q0  = 0x30  # QoS level 0 (At most once) currently we use the QoS level0 DUP = 0, Retain = 0
+PUBLISH_Q1  = 0x32  # QoS level 1 (At least once)
+PUBLISH_Q2  = 0x34  # QoS level 2 (Exactly once)
 PUBACK      = 0x40
 SUBSCRIBE   = 0x82
 SUBACK      = 0x90
