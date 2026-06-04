@@ -32,6 +32,7 @@ import threading
 import paho.mqtt.client as mqtt
 
 MQTT_PORT = 1883 # Default mqtt port number 
+MAX_CLIENT_NUM = 50 #maximum client allowed to connect to the broker.
 
 # MQTT packet type constants (currently what we need, may add more in the future)
 CONNECT     = 0x10
@@ -218,11 +219,12 @@ class ClientHandler(threading.Thread):
 #-----------------------------------------------------------------------------
 class MQTTBroker(object):
     """ The MQTT Broker class. """
-    def __init__(self, host="0.0.0.0", port=MQTT_PORT):
+    def __init__(self, host="0.0.0.0", port=MQTT_PORT, maxClient=MAX_CLIENT_NUM):
         self.host = host
         self.port = port
         self.parm = {}  # parm is a dictionary to store the MQTT broker parameters
         self.subscription = {}
+        self.maxCLient = max(1, int(maxClient))
         self.serverSock = None
         self.terminate = False
 
@@ -273,7 +275,7 @@ class MQTTBroker(object):
         self._server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._server_sock.bind((self.host, self.port))
-        self._server_sock.listen(50)
+        self._server_sock.listen(self.maxCLient)
         print("INFO : MQTT Broker is listening on port %s: %d" %(self.host, self.port))
         try:
             while not self.terminate:
