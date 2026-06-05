@@ -103,32 +103,44 @@ For the detail packet analysis, please refer to below document :
 
 ### 3. Design of The MQTT Virtual IIoT and RTU
 
-In this section I will introduce the detail design of the module and use the simulated factory air vacuum system and IoT drone data receiver how these MQTT communication modules are integrated in the different components of the cyber twin system. 
+This section introduces the detailed design of the MQTT communication modules and demonstrates how they can be integrated into cyber twin environments. Two example applications are presented: a simulated smart factory air vacuum control system and an IoT drone telemetry receiver system. These examples illustrate how MQTT-based communication can be incorporated into different layers of an industrial control architecture.
 
-#### 3.1 Communication Module Design
+#### 3.1 MQTT Communication Module Design
 
-For the MQTT Broker communication module, the packet type covered is shown below : 
+The MQTT communication framework consists of two primary components: an MQTT Broker module and an MQTT Client module. Together, these components provide the messaging infrastructure required for data exchange between simulated field devices, controllers, and supervisory applications.
+
+**3.1.1 Design of MQTT Broker** 
+
+For the MQTT Broker module, the currently implemented MQTT packet types are shown below.
 
 ![](doc/img/s_05.png)
 
 ```python
 # MQTT packet type constants (currently what we need, may add more in the future)
-CONNECT     = 0x10
-CONNACK     = 0x20
+CONNECT     = 0x10	# Establish a connection to the MQTT Broker
+CONNACK     = 0x20	# Connection acknowledgement from the broker
 PUBLISH_Q0  = 0x30  # QoS level 0 (At most once) currently we use the QoS level0 DUP = 0, Retain = 0
 PUBLISH_Q1  = 0x32  # QoS level 1 (At least once)
 PUBLISH_Q2  = 0x34  # QoS level 2 (Exactly once)
-PUBACK      = 0x40
-SUBSCRIBE   = 0x82
-SUBACK      = 0x90
-PINGREQ     = 0xC0
-PINGRESP    = 0xD0
-DISCONNECT  = 0xE0
+PUBACK      = 0x40	# publish acknowledgement
+SUBSCRIBE   = 0x82	# Subscribe to one or more topics
+SUBACK      = 0x90	# Subscription acknowledgement
+PINGREQ     = 0xC0	# Keep-alive request
+PINGRESP    = 0xD0	# Keep-alive response
+DISCONNECT  = 0xE0	# Gracefully terminate a connection
 ```
 
-For each of the broker module, when a new broker is connected, it will start a client handler running in the sub-thread to handle the data publish and subscribe request. For the publish request, the parameters value get request topic I use `parameters/get/<topicName>` , the value set request topic I use `parameters/set/<topicName>`. For the subscribe request the parameter topic I use `parameters/value/<topicName>`. 
+For each Broker module, when a new MQTT client establishes a connection with it, a dedicated client handler thread is created to manage publish and subscribe requests independently. This multi-threaded architecture allows multiple MQTT clients to communicate with the broker simultaneously.
 
-In the broker, if we need to execute some logic to process some data there is one interface function `executeLogic` is provided: 
+To simplify parameter access and standardize data exchange, the following topic naming conventions are used:
+
+| Topic Pattern                  | Purpose                                  |
+| ------------------------------ | ---------------------------------------- |
+| `parameters/get/<topicName>`   | Request the current value of a parameter |
+| `parameters/set/<topicName>`   | Update the value of a parameter          |
+| `parameters/value/<topicName>` | Subscribe to parameter value updates     |
+
+In addition to basic message routing, the broker module provides an interface function named `executeLogic()` that allows users to implement custom data processing and control algorithms.
 
 ```python
 def executeLogic(self):
@@ -136,9 +148,56 @@ def executeLogic(self):
 	pass
 ```
 
-So you need to create a broker class inherit this MQTTBroker class and overwrite this interface function to add the logic you want. Then the function will be executed every time when a new value is published set to a parameter. In your main function thread you can also call this function periodically to regularly process the current stored data. 
+Users can create a custom broker by inheriting from the base `MQTTBroker` class and overriding this function with application-specific logic. The function is automatically triggered whenever a parameter value is updated through a publish request. It can also be called periodically within the main execution loop to perform scheduled data processing tasks.
 
-For the MQTT client module, I use the PAHO-MQTT lib: https://pypi.org/project/paho-mqtt/ to build the functions of the client with the `getParmVal()` to get the parameter's value from broker, `setParmVal()` to set the parameter value to a broker and `watch()/watchall()` to continues subscribe parameters from broker. 
+For simplicity and maximum compatibility between different simulated devices, all parameter values are internally stored as string data types. Type conversion can be performed by application-specific logic when required.
+
+**3.1.2 Design of MQTT Client**
+
+The MQTT Client module is implemented using the Eclipse Paho MQTT library https://pypi.org/project/paho-mqtt/ . The client provides four functions for cyber twin simulation components to use:
+
+- `getParmVal()` – Retrieve a parameter value from the broker.
+- `setParmVal()` – Update a parameter value on the broker.
+- `watch()` – Subscribe to a specified parameter topic.
+- `watchall()` – Subscribe to all available parameter topics.
+
+#### 3.2 Cyber Twin Integration Design
+
+To demonstrate the usage of the MQTT communication framework, two cyber twin components were developed: an IoT drone telemetry system and a smart factory air vacuum control system. The overall integration architecture is shown below.
+
+![](doc/img/s_06.png)
+
+**3.2.1 IoT Drone Telemetry System**
+
+In the IoT drone simulation system, the drone simulator operates as an MQTT client and continuously publishes raw flight telemetry data to the MQTT broker. The transmitted data includes information such as: `Roll angle`, `Pitch angle`, `Yaw angle`, `Altitude`, `Speed` and `GPS position`.
+
+The MQTT broker executes custom processing logic to convert the raw sensor measurements into human-readable flight status information. The processed results are then stored within the broker's parameter database.
+
+The Drone State Monitor HMI operates as another MQTT client and subscribes to the processed telemetry topics. By continuously receiving updates from the broker, the HMI provides real-time visualization of the drone's operational status and flight conditions.
+
+**3.2.2 Smart Factory Air Vacuum Control System**
+
+The smart factory air vacuum system demonstrates the integration of MQTT communication with a traditional RTU-based control architecture.
+
+Within the physical process simulator, the temperature sensor, pressure sensor, and fan speed sensor generate simulated measurements that are transmitted to the RTU through a UDP-based electrical signal simulation channel. The RTU stores these measurements in its internal parameter dictionary and executes local control logic to determine appropriate control actions.
+
+Based on the current operating conditions, the RTU may issue control commands to:
+
+- Fan motor controllers
+- Air pipe valve controllers
+- Other simulated field devices
+
+These control commands are delivered through the same simulated electrical signal channel used by the physical process model.
+
+MQTT client running inside the RTU publishes operational data and system status information to the MQTT broker. The Factory Environment Monitoring HMI subscribes to these MQTT topics and displays the information through a real-time dashboard.
+
+The MQTT infrastructure also enables supervisory control. When an operator modifies a system configuration through the control dashboard, the command is published to the MQTT broker. The RTU subscribes to the relevant control topics and receives the updated settings. These operator-issued commands can override the RTU's automatic control decisions, allowing manual intervention when required.
+
+After receiving the new control parameters, the RTU updates its internal control state and issues corresponding commands to the simulated field devices, causing the physical process simulator to respond accordingly.
+
+To support rapid maintenance operations and engineering testing, the RTU additionally hosts a lightweight embedded MQTT broker linked directly to selected control parameters. This feature enables engineering consoles and local HMIs to perform low-latency direct control and parameter modification without traversing the central MQTT infrastructure.
 
 
+
+------
 
