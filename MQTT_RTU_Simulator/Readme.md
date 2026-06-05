@@ -201,3 +201,107 @@ To support rapid maintenance operations and engineering testing, the RTU additio
 
 ------
 
+### 4. Use Case Example
+
+To demonstrate the usage of the MQTT Virtual RTU/IIoT Simulator, this section presents a simple fan controller RTU implementation. The example shows how the MQTT Broker and MQTT Client modules can be integrated to create an RTU capable of performing automatic control logic while exposing telemetry and control interfaces through MQTT.
+
+The following Python modules are provided as baseline examples and can be extended to build more complex MQTT-enabled industrial device simulators.
+
+| Program File                   | Execution Env | Description                                                  |
+| ------------------------------ | ------------- | ------------------------------------------------------------ |
+| `src/mqttComm.py`              | python 3.7+   | Core library implementing IEC-20922 MQTT client/broker APIs used to simulate data and command interactions between IIoT/RTU and SCADA software. |
+| `src/mqttCommTest.py`          | python 3.7+   | A testcase module for `<mqttComm.py>`. It launches a MQTT broker service in a background thread, creates two clients, and tests parameter value publish/subscribe operations and control logic. |
+| `testcase/mqtRtuClientTest.py` | python 3.7+   | This module is a simple RTU connector program use the MQTT lib  module `<mqttComm.py>` to simulate a SCADA device with one MQTT client to connect to the `<mqtRtuBrokerTest.py>` to set the random value to the parameters and read the related response to verify the result. |
+| `testcase/mqtRtuBrokerTest.py` | python 3.7+   | This module is a simple RTU simulation program use the lib module `<opcuaComm.py>` to simulate a RTU with one MQTT broker and one auto control logic to handle variable read and changeable value set from client side. |
+
+#### 4.1 Implementing the Broker Control Logic
+
+In this example, an automatic fan controller is implemented within the MQTT Broker. The control requirement is straightforward:
+
+- If the operating mode is set to Auto and the temperature exceeds 50°C, the fan is switched on and the fan speed is set to 50%.
+- Otherwise, the fan is switched off.
+
+To implement this behavior, a custom broker class is created by inheriting from the base `MQTTBroker` class and overriding the `executeLogic()` interface function.
+
+```python
+class TestBroker(mqttComm.MQTTBroker):
+    """ Test broker class, it will start a broker in sub-thread and multiple clients 
+        to test the data read and transmit. 
+    """
+    def __init__(self, brokerName='testBroker', brokerPort=1883):
+        super().__init__()
+        self.mqttClients = []
+    def executeLogic(self):
+        """ The fan control logic overwrite the executeLogic in mqttComm.MQTTBroker. """
+        print("> execute the control logic")
+        temp = float(self.getParmVal('temperature'))
+        mode = self.getParmVal('mode')
+        if mode == 'auto':
+            if temp > 50:
+                self.setParmVal('fan', 'on')
+                self.setParmVal('fanSpeed', '50')
+            else:
+                self.setParmVal('fan', 'off')
+                self.setParmVal('fanSpeed', '0')
+```
+
+#### 4.2 Implementing the RTU Module
+
+The RTU simulator hosts the MQTT broker in a dedicated background thread and initializes the parameters required by the control application.
+
+```python
+class MQTTbrokerThread(threading.Thread):
+    """ MQTT broker thread class. """
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.mqttBroker = TestBroker()
+        self.mqttBroker.addParm('temperature', '25.0')
+        self.mqttBroker.addParm('mode', 'manual')
+        self.mqttBroker.addParm('fan', 'off')
+        self.mqttBroker.addParm('fanSpeed', '0')
+```
+
+The RTU periodically exchanges data with the physical process simulator. During each execution cycle, sensor values are collected from the simulated environment, stored in the MQTT broker parameter database, and processed by the automatic control algorithm.
+
+```python
+    def run(self):
+        while not self.terminate:
+            self.fetchDataFromPhysicalWorld()
+            self.brokerObj.setParmVal('temperature', str(self.srcValDict['temperature']))
+            self.brokerObj.executeLogic()
+            time.sleep(0.1) # sleep 0.1 sec to wait the broker's 
+            self.srcValDict['autoMode'] = self.brokerObj.getParmVal('mode') == 'auto'
+            self.destValDict['fanPwr'] = self.brokerObj.getParmVal('fan') == 'on'
+            self.destValDict['fanSpeed'] = int(self.brokerObj.getParmVal('fanSpeed'))
+            print("Source Parameter: %s" % str(self.srcValDict))
+            print("Destination Parameter: %s" % str(self.destValDict))
+```
+
+#### 4.3 Implementing the RTU Connector Module
+
+External applications such as HMIs, SCADA systems, engineering workstations, or monitoring dashboards can communicate with the RTU through the MQTT Client module.
+
+To establish a connection, a client object is created and connected to the broker as shown below 
+
+```python
+class RtuConnector(object):
+    def __init__(self, clientId, host, port=1883):
+        self.mHost = host
+        self.mPort = port
+        self.mClientId = clientId
+        self.client = mqttComm.MQTTClient(clientId, host, port=1883)
+        self.client.connect()
+    #-----------------------------------------------------------------------------
+    def startTest(self):
+        index = 0
+        print("Start the client test")
+        index += 1
+        print("\nTest-%d Subscribe data from the server." % index)
+        temp = self.client.getParmVal('temperature')
+        mode = self.client.getParmVal('mode')
+        fan = self.client.getParmVal('fan')
+        fanS = self.client.getParmVal('fanSpeed')
+```
+
+
+
