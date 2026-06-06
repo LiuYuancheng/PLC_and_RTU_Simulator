@@ -17,6 +17,22 @@
 
 [TOC]
 
+- [Python Virtual RTU/IIoT Simulator with IEC-20922 MQTT Communication Protocol](#python-virtual-rtu-iiot-simulator-with-iec-20922-mqtt-communication-protocol)
+    + [1. Project Introduction](#1-project-introduction)
+      - [1.1 System Overview](#11-system-overview)
+      - [1.2 System ISA-95 Architecture](#12-system-isa-95-architecture)
+    + [2. MQTT Protocol Background Knowledge](#2-mqtt-protocol-background-knowledge)
+      - [2.1 MQTT Protocol Packet Structure](#21-mqtt-protocol-packet-structure)
+      - [2.2 MQTT Protocol Key Features](#22-mqtt-protocol-key-features)
+    + [3. Design of The MQTT Virtual IIoT and RTU](#3-design-of-the-mqtt-virtual-iiot-and-rtu)
+      - [3.1 MQTT Communication Module Design](#31-mqtt-communication-module-design)
+      - [3.2 Cyber Twin Integration Design](#32-cyber-twin-integration-design)
+    + [4. Use Case Example](#4-use-case-example)
+      - [4.1 Implementing the Broker Control Logic](#41-implementing-the-broker-control-logic)
+      - [4.2 Implementing the RTU Module](#42-implementing-the-rtu-module)
+      - [4.3 Implementing the RTU Connector Module](#43-implementing-the-rtu-connector-module)
+    + [5. Conclusion Project Repo Link](#5-conclusion-project-repo-link)
+
 ------
 
 ### 1. Project Introduction
@@ -318,11 +334,17 @@ class RtuConnector(object):
 
 ------
 
-### 5. Conclusion
+### 5. Conclusion Project Repo Link
 
 ![](doc/img/title.png)
 
 This project extends a Python-based virtual PLC/RTU simulator library with IEC 20922 (MQTT) protocol support, enabling publish-subscribe communication for industrial cyber twins and OT security research. The implementation comprises two main components: an MQTT communication module compliant with the standard packet structure (supporting CONNECT, PUBLISH, SUBSCRIBE, PING, DISCONNECT), and an RTU/IIoT simulator framework that models field device behavior, manages virtual I/O, and executes user-defined control logic. The system follows a four-level ISA‑95 architecture, from simulated physical process devices up to operations management applications. Two demonstration use cases are provided: an IoT drone telemetry system and a smart factory air vacuum control system. A simple fan controller example illustrates how to implement custom broker logic and integrate MQTT clients for telemetry exchange and supervisory control. The simulator serves educational, prototyping, and cybersecurity analysis purposes for researchers, students, developers, and OT professionals.
+
+**Project Repo Link:** 
+
+```
+https://github.com/LiuYuancheng/PLC_and_RTU_Simulator/tree/main/MQTT_RTU_Simulator
+```
 
 
 
