@@ -61,6 +61,8 @@ class RtuConnector(object):
     def startTest(self):
         index = 0
         print("Start the client test")
+        #self.client.watch_all()
+        #exit()
 
         index += 1
         print("\nTest-%d Subscribe data from the server." % index)
