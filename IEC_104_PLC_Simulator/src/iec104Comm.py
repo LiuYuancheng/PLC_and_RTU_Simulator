@@ -31,7 +31,7 @@
     3. Server changeable value (C_RC_TA): 
         - Regulating step command , can be read from server and client, but can only 
         be changed from client via transmit call.
-        - Expected value: iec104.Step.HIGHER/LOWER/INVALID_0/INVALID_1
+        - Expected value: iec104.Step.HIGHER/LOWER/INVALID_0/INVALID_3
 
     To change a measured bool value from client, add a function to link one M_SP_NA
     with one C_RC_TA, when the client side changed C_RC_TA, then modify the M_SP_NA. 
