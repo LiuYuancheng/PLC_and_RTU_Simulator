@@ -36,8 +36,10 @@
     for production ICS deployments.
 """
 
+import sys
 import socket
 import struct
+import threading
 
 # --------------------------------------------------------------------------
 # Constants
@@ -281,7 +283,195 @@ def recv_link_frame(sock: socket.socket) -> bytes:
     data_area = recv_exact(sock, user_data_len + 2 * n_blocks)
     return sync + header_rest + data_area
 
-
 # --------------------------------------------------------------------------
 # DNP server module
 # --------------------------------------------------------------------------
+class DNP3Server(object):
+    def __init__(self, host='0.0.0.0', port=DNP3_PORT, maxConn=50):
+        self.host = str(host)
+        self.port = int(port)
+        self.binaryInputs = {}
+        self.analogInputs = {}
+        self.binaryOutputs = {}
+        self.analogOutputs = {}
+        self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.srv.bind((self.host, self.port))
+        self.srv.listen(int(maxConn))
+        #self.srv.settimeout(1.0)
+        self.terminated = False
+
+    def _describe_read(self, objects: bytes):
+        lines = []
+        pos = 0
+        names = {
+            GRP_BINARY_INPUT: "BinaryInput",
+            GRP_ANALOG_INPUT: "AnalogInput",
+            GRP_BINARY_OUTPUT_STATUS: "BinaryOutputStatus",
+            GRP_ANALOG_OUTPUT_STATUS: "AnalogOutputStatus",
+        }
+        while pos + 3 <= len(objects):
+            group, variation, qualifier = objects[pos], objects[pos + 1], objects[pos + 2]
+            pos += 3
+            lines.append(f"READ requested: {names.get((group, variation), f'Group{group}Var{variation}')}")
+        return lines
+
+    # --------------------------------------------------------------------------
+    def handleRead(self, objects): 
+        """ Parse a list of (group,var,qualifier=0x06) request headers and build
+            the corresponding response object data.
+        """
+        out = b""
+        pos = 0
+        while pos < len(objects):
+            group, variation, qualifier = objects[pos], objects[pos + 1], objects[pos + 2]
+            pos += 3
+            if qualifier != QUAL_ALL_POINTS:
+                continue # unsupported qualifier in this minimal implementation; skip
+            if (group, variation) == GRP_BINARY_INPUT:
+                out += build_response_objects(group, variation, self.binaryInputs, encode_binary_point)
+            elif (group, variation) == GRP_ANALOG_INPUT:
+                out += build_response_objects(group, variation, self.analogInputs, encode_analog_point)
+            elif (group, variation) == GRP_BINARY_OUTPUT_STATUS:
+                out += build_response_objects(group, variation, self.binaryOutputs, encode_binary_point)
+            elif (group, variation) == GRP_ANALOG_OUTPUT_STATUS:
+                out += build_response_objects(group, variation, self.analogOutputs, encode_analog_point)
+        return out
+
+    # --------------------------------------------------------------------------
+    def handleOperate(self, objects):
+        """ Parse CROB / Analog Output Command objects (index-prefixed) and apply
+            them to the point database. Returns (echo_objects, log_lines).
+        """
+        out = b""
+        logs = []
+        pos = 0
+        while pos < len(objects):
+            group, variation, qualifier, count = objects[pos], objects[pos + 1], objects[pos + 2], objects[pos + 3]
+            pos += 4
+            if qualifier != QUAL_8BIT_INDEX_PREFIX: break
+            for _ in range(count):
+                index = objects[pos]
+                pos += 1
+                if (group, variation) == GRP_CROB:
+                    control_code = objects[pos]
+                    obj_bytes = objects[pos:pos + 11]
+                    pos += 11
+                    value = control_code == CROB_LATCH_ON
+                    if index in self.binaryOutputs.keys():
+                        self.binaryOutputs[index] = value
+                        logs.append("WRITE  BinaryOutput[%s] = %s" % (str(index), str(value)))
+                        out += bytes([group, variation, QUAL_8BIT_INDEX_PREFIX, 1, index])
+                        out += obj_bytes[:-1] + bytes([0])  # echo back, status=0 (SUCCESS)
+                elif (group, variation) == GRP_ANALOG_OUTPUT_CMD:
+                    obj_bytes = objects[pos:pos + 5]
+                    value = int.from_bytes(obj_bytes[0:4], "little", signed=True)
+                    pos += 5
+                    if index in self.analogOutputs.keys():
+                        self.analogOutputs[index] = value
+                        logs.append("WRITE  AnalogOutput[%s] = %s" % (str(index), str(value)))
+                        out += bytes([group, variation, QUAL_8BIT_INDEX_PREFIX, 1, index])
+                        out += obj_bytes[:-1] + bytes([0])  # echo back, status=0 (SUCCESS)
+                else:
+                    break
+        return out, logs
+    
+    # --------------------------------------------------------------------------
+    def serve_client(self, conn: socket.socket, addr):
+        print("[+] Master connected from %s" % str(addr))
+        try:
+            while True:
+                frame = recv_link_frame(conn)
+                dest, src, from_master, user_data = parse_link_frame(frame)
+                if not user_data or not from_master: continue
+                fir, fin, seq, app_bytes = parse_transport_segment(user_data)
+                function, app_seq, _, _, objects = parse_app_header(app_bytes)
+                fname = FUNC_NAMES.get(function, hex(function))
+                print("\t<- %s (seq=%s) from master" %(str(fname), str(app_seq)))
+                if function == FUNC_READ:
+                    resp_objects = self.handleRead(objects)
+                    for line in self._describe_read(objects):
+                        print("\t" + str(line))
+                elif function in (FUNC_DIRECT_OPERATE, FUNC_DIRECT_OPERATE_NR):
+                    resp_objects, logs = self.handleOperate(objects)
+                    for line in logs:
+                        print("\t" + str(line))
+                else:
+                    resp_objects = b""
+                app_resp = build_app_response(FUNC_RESPONSE, app_seq, iin1=0x00, iin2=0x00, objects=resp_objects)
+                transport = build_transport_segment(app_resp, seq=0)
+                frame_out = build_link_frame(transport, dest=src, src=dest, from_master=False)
+                send_frame(conn, frame_out)
+                print("\t-> RESPONSE (seq=%s) sent, %s bytes on the wire" %(str(app_seq), str(len(frame_out)) ))
+        except (ConnectionError, OSError) as e:
+            print("[-] Master %s disconnected (%s)" % (str(addr), str(e)))
+        finally:
+            conn.close()
+
+    # --------------------------------------------------------------------------
+    def run(self):
+        try:
+            while not self.terminated:
+                conn, addr = self.srv.accept()
+                threading.Thread(target=self.serve_client, args=(conn, addr), daemon=True).start()
+        except KeyboardInterrupt:
+            print("\n[*] Shutting down")
+        finally:
+            self.srv.close()
+
+    # --------------------------------------------------------------------------
+    # Define all the get functions
+    def getBinaryInput(self, index):
+        return self.binaryInputs[index] if index in self.binaryInputs.keys() else None
+
+    def getAnalogInput(self, index):
+        return self.analogInputs[index] if index in self.analogInputs.keys() else None
+    
+    def getBinaryInputs(self):
+        return self.binaryInputs
+
+    def getAnalogInputs(self):
+        return self.analogInputs
+
+    def getBinaryOutput(self, index):
+        return self.binaryOutputs[index] if index in self.binaryOutputs.keys() else None
+
+    def getAnalogOutput(self, index):
+        return self.analogOutputs[index] if index in self.analogOutputs.keys() else None
+
+    def getBinaryOutputs(self):
+        return self.binaryOutputs
+
+    def getAnalogOutputs(self):
+        return self.analogOutputs 
+
+    # --------------------------------------------------------------------------
+    # Define all the set functions
+    def setBinaryInput(self, index, value):
+        if index in self.binaryInputs.keys():
+            self.binaryInputs[index] = bool(value)
+            return True 
+        return False
+
+    def setAnalogInput(self, index, value):
+        if index in self.analogInputs.keys():
+            self.analogInputs[index] = value
+            return True
+        return False
+    
+    def setBinaryOutput(self, index, value):
+        if index in self.binaryOutputs.keys():
+            self.binaryOutputs[index] = bool(value)
+            return True
+        return False
+
+    def setAnalogOutput(self, index, value):
+        if index in self.analogOutputs.keys():
+            self.analogOutputs[index] = value
+            return True
+        return False
+
+# --------------------------------------------------------------------------
+if __name__ == "__main__":
+    server = DNP3Server()
+    server.run()
