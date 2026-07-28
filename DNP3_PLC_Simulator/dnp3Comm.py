@@ -76,6 +76,13 @@ GRP_ANALOG_INPUT = (30, 1)          # 32-bit Analog Input w/flag   (5 bytes/obj)
 GRP_ANALOG_OUTPUT_STATUS = (40, 1)  # 32-bit Analog Output status  (5 bytes/obj)
 GRP_ANALOG_OUTPUT_CMD = (41, 1)     # 32-bit Analog Output cmd     (5 bytes/obj)
 
+READABLE_TYPES = [
+    GRP_BINARY_INPUT,
+    GRP_ANALOG_INPUT,
+    GRP_BINARY_OUTPUT_STATUS,
+    GRP_ANALOG_OUTPUT_STATUS,
+]
+
 QUAL_ALL_POINTS = 0x06         # request: "give me all of this object type"
 QUAL_8BIT_START_STOP = 0x00    # response: packed range, 8-bit start/stop
 QUAL_8BIT_INDEX_PREFIX = 0x17  # request: 1-byte index prefix, 1-byte count
@@ -274,8 +281,7 @@ def recv_exact(sock: socket.socket, n: int) -> bytes:
 def recv_link_frame(sock: socket.socket) -> bytes:
     """Read exactly one DNP3 data-link frame off the wire."""
     sync = recv_exact(sock, 2)
-    if sync != SYNC:
-        raise ValueError("desynced stream, expected DNP3 sync bytes")
+    if sync != SYNC: raise ValueError("desynced stream, expected DNP3 sync bytes")
     header_rest = recv_exact(sock, 8)  # length,control,dest,src,crc
     length = header_rest[0]
     user_data_len = length - 5
@@ -284,7 +290,7 @@ def recv_link_frame(sock: socket.socket) -> bytes:
     return sync + header_rest + data_area
 
 # --------------------------------------------------------------------------
-# DNP server module
+# DNP3.0 server module
 # --------------------------------------------------------------------------
 class DNP3Server(object):
     def __init__(self, host='0.0.0.0', port=DNP3_PORT, maxConn=50):
@@ -294,6 +300,7 @@ class DNP3Server(object):
         self.analogInputs = {}
         self.binaryOutputs = {}
         self.analogOutputs = {}
+        # Init the TCP server.
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.srv.bind((self.host, self.port))
@@ -411,6 +418,7 @@ class DNP3Server(object):
     # --------------------------------------------------------------------------
     def run(self):
         try:
+            print("Start the DNP3 server thread session.")
             while not self.terminated:
                 conn, addr = self.srv.accept()
                 threading.Thread(target=self.serve_client, args=(conn, addr), daemon=True).start()
@@ -418,6 +426,19 @@ class DNP3Server(object):
             print("\n[*] Shutting down")
         finally:
             self.srv.close()
+
+    # --------------------------------------------------------------------------
+    def addBinaryInput(self, index, value):
+        self.binaryInputs[index] = bool(value)
+
+    def addAnalogInput(self, index, value):
+        self.analogInputs[index] = value
+
+    def addBinaryOutput(self, index, value):
+        self.binaryOutputs[index] = bool(value)
+
+    def addAnalogOutput(self, index, value):
+        self.analogOutputs[index] = value
 
     # --------------------------------------------------------------------------
     # Define all the get functions
@@ -471,6 +492,104 @@ class DNP3Server(object):
             return True
         return False
 
+# --------------------------------------------------------------------------
+# DNP3.0 Client module
+# --------------------------------------------------------------------------
+
+OUTSTATION_ADDR = 4   # arbitrary DNP3 link addresses, just need to be consistent
+MASTER_ADDR = 3
+
+def parse_response_objects(objects: bytes):
+    """Parse Qualifier=0x00 (8-bit start/stop, packed) response object headers."""
+    result = {}
+    pos = 0
+    sizes = {
+        GRP_BINARY_INPUT: (1, decode_binary_point),
+        GRP_ANALOG_INPUT: (5, decode_analog_point),
+        GRP_BINARY_OUTPUT_STATUS: (1, decode_binary_point),
+        GRP_ANALOG_OUTPUT_STATUS: (5, decode_analog_point),
+    }
+    while pos + 5 <= len(objects):
+        group, variation, qualifier = objects[pos], objects[pos + 1], objects[pos + 2]
+        start, stop = objects[pos + 3], objects[pos + 4]
+        pos += 5
+        obj_size, decoder = sizes.get((group, variation), (None, None))
+        if obj_size is None:
+            break
+        values = {}
+        for i in range(start, stop + 1):
+            values[i] = decoder(objects[pos:pos + obj_size])
+            pos += obj_size
+        result[(group, variation)] = values
+    return result
+
+def parse_direct_operate_echo(objects: bytes):
+    if len(objects) < 5:
+        return None
+    group, variation, qualifier, count = objects[0], objects[1], objects[2], objects[3]
+    index = objects[4]
+    status = objects[-1]
+    return {"group": group, "variation": variation, "index": index, "status": status, "success": status == 0}
+
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+class DNP3Client(object):
+    def __init__(self, host, port=DNP3_PORT, timeout=5.0):
+        self.host = str(host)
+        self.port = int(port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.settimeout(timeout)
+        self.seq = 0
+        self.connection = False 
+
+    def _next_seq(self):
+        s = self.seq
+        self.seq = (self.seq + 1) % 16
+        return s
+
+    # --------------------------------------------------------------------------
+    def connect(self):
+        try:
+            self.sock.connect((self.host, self.port))
+            self.connection = True
+            print("[+] Connected to %s:%s" % (self.host, self.port))
+        except (ConnectionError, OSError) as e:
+            print("[-] Unable to connect to %s:%s (%s)" % (self.host, self.port, str(e)))
+            self.connection = False
+
+    def _send_and_wait(self, app_request: bytes, seq: int) -> bytes:
+        transport = build_transport_segment(app_request, seq=0)
+        frame = build_link_frame(transport, dest=OUTSTATION_ADDR, src=MASTER_ADDR, from_master=True)
+        send_frame(self.sock, frame)
+
+        reply_frame = recv_link_frame(self.sock)
+        _, _, _, user_data = parse_link_frame(reply_frame)
+        _, _, _, app_bytes = parse_transport_segment(user_data)
+        function, resp_seq, iin1, iin2, objects = parse_app_header(app_bytes)
+        return objects
+
+    def readAll(self):
+        seq = self._next_seq()
+        req_objects = build_read_request(READABLE_TYPES)
+        app_req = build_app_request(FUNC_READ, seq, req_objects)
+        resp_objects = self._send_and_wait(app_req, seq)
+        return parse_response_objects(resp_objects)
+
+    def writeBinaryOutput(self, index: int, value: bool):
+        seq = self._next_seq()
+        objects = build_direct_operate_crob(index, value)
+        app_req = build_app_request(FUNC_DIRECT_OPERATE, seq, objects)
+        resp_objects = self._send_and_wait(app_req, seq)
+        return parse_direct_operate_echo(resp_objects)
+
+    def writeAnalogOutput(self, index: int, value: int):
+        seq = self._next_seq()
+        objects = build_direct_operate_analog(index, value)
+        app_req = build_app_request(FUNC_DIRECT_OPERATE, seq, objects)
+        resp_objects = self._send_and_wait(app_req, seq)
+        return parse_direct_operate_echo(resp_objects)
+
+# --------------------------------------------------------------------------
 # --------------------------------------------------------------------------
 if __name__ == "__main__":
     server = DNP3Server()
