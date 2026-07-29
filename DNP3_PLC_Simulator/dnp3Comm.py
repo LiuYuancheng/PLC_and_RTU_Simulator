@@ -4,13 +4,13 @@
 #
 # Purpose:     This module provides a minimal and dependency-free (IEEE 1815) DNP3 
 #              communication lib protocol implementation. The lib is designed from
-#              scratch to run on both Windows and Linux with nothing but the Python
-#              standard library (socket + struct).  
+#              scratch to run on both Windows and Linux without special tool-set such
+#              as C++ compiler but only the Python standard library (socket + struct).  
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2026/07/17
-# Version:     v_0.0.1
+# Version:     v_0.0.3
 # Copyright:   Copyright (c) 2026 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -18,8 +18,8 @@
 
     The function implemented in this module will be enough of the Data Link, Transport 
     and Application layers to:
-     - Open a TCP session on the standard DNP3 port (20000)
-     - READ (function 0x01) Binary Inputs (Group1Var2), Analog Inputs
+     - Open a TCP session on the standard DNP3.0 port (20000)
+     - Provide API: READ (function 0x01) Binary Inputs (Group1Var2), Analog Inputs
         (Group30Var1), Binary Output status (Group10Var2) and Analog Output
         status (Group40Var1)
      - DIRECT_OPERATE (function 0x05) a Binary Output (Group12Var1 / CROB) or
@@ -33,10 +33,9 @@
     This is NOT a full/compliant DNP3 stack (no unsolicited responses, no
     multi-fragment transport reassembly, no confirm/retry handling, no serial
     support). It is intended for lab / training / detection-content use, not
-    for production ICS deployments.
+    for production ICS deployments. The data types supported are limited to bool and int.
 """
 
-import sys
 import socket
 import struct
 import threading
@@ -111,6 +110,8 @@ def crc16_dnp(data: bytes) -> int:
                 crc >>= 1
     return (crc ^ 0xFFFF) & 0xFFFF
 
+# DNP3 uses a 16-bit Cyclic Redundancy Check (CRC) with the polynomial 0x3D65 for 
+# error detection in data link layer frames.
 def _append_crc(data: bytes) -> bytes:
     return data + struct.pack("<H", crc16_dnp(data))
 
@@ -128,7 +129,7 @@ def build_link_frame(user_data: bytes, dest: int, src: int, from_master: bool) -
     """
     length = 5 + len(user_data)  # control+dest+src (5) + user data
     if length > 255:
-        raise ValueError("message too long for a single DNP3 frame (no multi-frame transport in this lib)")
+        raise ValueError("Message too long for a single DNP3 frame (no multi-frame transport in this lib)")
     # control byte: DIR | PRM | FCB | FCV | function(4 bits)
     dir_bit = 0x80 if from_master else 0x00
     control = dir_bit | 0x40 | LINK_FUNC_UNCONFIRMED_USER_DATA  # PRM=1, FCB/FCV=0
@@ -141,13 +142,12 @@ def build_link_frame(user_data: bytes, dest: int, src: int, from_master: bool) -
         blocks += _append_crc(chunk)
     return header_with_crc + blocks
 
+# --------------------------------------------------------------------------
 def parse_link_frame(frame: bytes):
     """ Parse one data-link frame, return (dest, src, from_master, user_data)."""
-    if frame[0:2] != SYNC:
-        raise ValueError("bad sync bytes, not a DNP3 frame")
+    if frame[0:2] != SYNC: raise ValueError("bad sync bytes, not a DNP3 frame")
     header_block = frame[0:10]  # sync(2) + length,control,dest,src(6) + crc(2)
-    if not _check_crc(header_block):
-        raise ValueError("link header CRC failed")
+    if not _check_crc(header_block): raise ValueError("link header CRC failed")
     length, control, dest, src = struct.unpack("<BBHH", frame[2:8])
     from_master = bool(control & 0x80)
     data_area = frame[10:]
@@ -165,8 +165,9 @@ def parse_link_frame(frame: bytes):
         remaining -= take
     return dest, src, from_master, user_data
 
+# --------------------------------------------------------------------------
 def frame_byte_length(user_data_len: int) -> int:
-    """Total on-the-wire byte length of a link frame carrying user_data_len bytes."""
+    """ Total on-the-wire byte length of a link frame carrying user_data_len bytes."""
     n_blocks = (user_data_len + 15) // 16 if user_data_len else 0
     return 10 + user_data_len + 2 * n_blocks
 
@@ -174,8 +175,7 @@ def frame_byte_length(user_data_len: int) -> int:
 # Transport Layer (single-segment only: FIR=1, FIN=1)
 # --------------------------------------------------------------------------
 def build_transport_segment(app_bytes: bytes, seq: int = 0) -> bytes:
-    if len(app_bytes) > 249:
-        raise ValueError("application fragment too large for a single transport segment in this lib")
+    if len(app_bytes) > 249: raise ValueError("application fragment too large for a single transport segment in this lib")
     header = 0xC0 | (seq & 0x3F)  # FIN=1, FIR=1, SEQ
     return bytes([header]) + app_bytes
 
@@ -264,7 +264,7 @@ def parse_app_header(app_bytes: bytes):
     return function, seq, None, None, app_bytes[2:]
 
 # --------------------------------------------------------------------------
-# tiny TCP send/receive helpers shared by client & server
+# tiny TCP send/receive helpers shared by both client & server
 # --------------------------------------------------------------------------
 def send_frame(sock: socket.socket, frame: bytes):
     sock.sendall(frame)
@@ -293,13 +293,22 @@ def recv_link_frame(sock: socket.socket) -> bytes:
 # DNP3.0 server module
 # --------------------------------------------------------------------------
 class DNP3Server(object):
+    """ DNP3.0 server class for host the PLC or RTU data and provide to clients.
+        This obj needs to run in a sub-thread in the PLC/RTU's main thread.
+    """
     def __init__(self, host='0.0.0.0', port=DNP3_PORT, maxConn=50):
+        """ Init Example: self.server = dnp3Comm.DNP3Server(maxConn=3)
+            Args:
+                host (str, optional): host IP address. Defaults to '0.0.0.0'.
+                port (int, optional): host PORT Number. Defaults to DNP3_PORT(20000).
+                maxConn (int, optional): max number of client can handle. Defaults to 50.
+        """
         self.host = str(host)
         self.port = int(port)
-        self.binaryInputs = {}
-        self.analogInputs = {}
-        self.binaryOutputs = {}
-        self.analogOutputs = {}
+        self.binaryInputs = {}  # Binary Input (Group 1  Var 2) read-only, drifts on its own
+        self.analogInputs = {}  # Analog Input (Group 30 Var 1) read-only, drifts on its own
+        self.binaryOutputs = {} # Binary Output (Group 10 Var 2) readable/writable parameters
+        self.analogOutputs = {} # Analog Output (Group 40 Var 1) readable/writable parameters
         # Init the TCP server.
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -308,6 +317,7 @@ class DNP3Server(object):
         #self.srv.settimeout(1.0)
         self.terminated = False
 
+    # --------------------------------------------------------------------------
     def _describe_read(self, objects: bytes):
         lines = []
         pos = 0
@@ -418,7 +428,7 @@ class DNP3Server(object):
     # --------------------------------------------------------------------------
     def run(self):
         try:
-            print("Start the DNP3 server thread session.")
+            print("DNP3Server : Start the DNP3 server thread session.")
             while not self.terminated:
                 conn, addr = self.srv.accept()
                 threading.Thread(target=self.serve_client, args=(conn, addr), daemon=True).start()
@@ -497,7 +507,7 @@ class DNP3Server(object):
 # --------------------------------------------------------------------------
 
 OUTSTATION_ADDR = 4   # arbitrary DNP3 link addresses, just need to be consistent
-MASTER_ADDR = 3
+MASTER_ADDR = 0
 
 def parse_response_objects(objects: bytes):
     """Parse Qualifier=0x00 (8-bit start/stop, packed) response object headers."""
@@ -514,8 +524,7 @@ def parse_response_objects(objects: bytes):
         start, stop = objects[pos + 3], objects[pos + 4]
         pos += 5
         obj_size, decoder = sizes.get((group, variation), (None, None))
-        if obj_size is None:
-            break
+        if obj_size is None: break
         values = {}
         for i in range(start, stop + 1):
             values[i] = decoder(objects[pos:pos + obj_size])
@@ -534,7 +543,14 @@ def parse_direct_operate_echo(objects: bytes):
 # --------------------------------------------------------------------------
 # --------------------------------------------------------------------------
 class DNP3Client(object):
+    """ DNP3.0 Client class for sending request to DNP3 server and get response.""" 
     def __init__(self, host, port=DNP3_PORT, timeout=5.0):
+        """ Init Example : client1 = dnp3Comm.DNP3Client("127.0.0.1")
+            Args:
+                host (str): DNP3 server IP address
+                port (int, optional): port number. Defaults to DNP3_PORT.
+                timeout (float, optional): timeout seconds. Defaults to 5.0.
+        """
         self.host = str(host)
         self.port = int(port)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -542,20 +558,11 @@ class DNP3Client(object):
         self.seq = 0
         self.connection = False 
 
+    # --------------------------------------------------------------------------
     def _next_seq(self):
         s = self.seq
         self.seq = (self.seq + 1) % 16
         return s
-
-    # --------------------------------------------------------------------------
-    def connect(self):
-        try:
-            self.sock.connect((self.host, self.port))
-            self.connection = True
-            print("[+] Connected to %s:%s" % (self.host, self.port))
-        except (ConnectionError, OSError) as e:
-            print("[-] Unable to connect to %s:%s (%s)" % (self.host, self.port, str(e)))
-            self.connection = False
 
     def _send_and_wait(self, app_request: bytes, seq: int) -> bytes:
         transport = build_transport_segment(app_request, seq=0)
@@ -568,6 +575,21 @@ class DNP3Client(object):
         function, resp_seq, iin1, iin2, objects = parse_app_header(app_bytes)
         return objects
 
+    # --------------------------------------------------------------------------
+    def connect(self):
+        try:
+            self.sock.connect((self.host, self.port))
+            self.connection = True
+            print("[+] Connected to %s:%s" % (self.host, self.port))
+        except (ConnectionError, OSError) as e:
+            print("[-] Unable to connect to %s:%s (%s)" % (self.host, self.port, str(e)))
+            self.connection = False
+
+    # --------------------------------------------------------------------------
+    # All the get functions.
+    def getConnectionState(self):
+        return self.connection
+
     def readAll(self):
         seq = self._next_seq()
         req_objects = build_read_request(READABLE_TYPES)
@@ -575,6 +597,8 @@ class DNP3Client(object):
         resp_objects = self._send_and_wait(app_req, seq)
         return parse_response_objects(resp_objects)
 
+    # --------------------------------------------------------------------------
+    # All the set functions.
     def writeBinaryOutput(self, index: int, value: bool):
         seq = self._next_seq()
         objects = build_direct_operate_crob(index, value)
