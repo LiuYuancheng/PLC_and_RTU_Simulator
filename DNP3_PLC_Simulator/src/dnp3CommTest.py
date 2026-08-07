@@ -15,7 +15,7 @@
 #-----------------------------------------------------------------------------
 
 import time
-import random
+import random 
 import threading 
 
 import dnp3Comm
