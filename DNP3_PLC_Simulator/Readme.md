@@ -62,3 +62,8 @@ The **Outstation** is the field device, such as an RTU, PLC, or IED. Its respons
 - Optionally sending **unsolicited messages** when significant events occur
 
 An outstation generally serves one or more authorized masters, depending on the system design.
+
+
+
+------
+
