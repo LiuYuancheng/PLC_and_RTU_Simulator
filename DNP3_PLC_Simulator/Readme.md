@@ -70,15 +70,39 @@ DNP3 Wiki Reference: https://en.wikipedia.org/wiki/DNP3
 
 #### 2.1 NDP 3 Protocol Packet Structure
 
+DNP3 communication uses a layered packet structure designed to provide reliable communication between a DNP3 Master and DNP3 Outstation. A DNP3 frame consists of a Data Link Layer header, followed by a Transport Layer header and an Application Layer message. CRC values are also used to detect transmission errors. The Port for DNP3 communication use 20000. 
+
+The main DNP3 packet structure is shown below:
+
+![](doc/img/s_05.png)
+
+Image Reference: https://www.semanticscholar.org/paper/DNP3-network-scanning-and-reconnaissance-for-Rodofile-Radke/5d628548e00319009dad6afb08f80c7ed58cf29c/figure/0
+
+- The **Data Link Layer** identifies the beginning and length of the DNP3 frame and contains the source and destination addresses. 
+- The **Transport Layer** is responsible for fragmenting and reassembling larger application messages. 
+- The **Application Layer** contains the actual DNP3 operation, such as `READ`, `WRITE`, control operations, or responses containing process data.
+
+**2.1.1 DNP3 Function Code**
+
+In the application layer data, the "FN Code" will identify the function of this packet. As show in the below, the function code `0x81` identify it is a response for the data reading request from the DNP outstation: 
+
+![](doc/img/s_06.png)
 
 
 
+The DNP3 protocol uses 27 basic function codes to allow communication between master stations and remote units, in the DNP3 lib I created, I only implement below 7 function for data exchange and simplify control: 
 
+| Name                      | FN Code | Hex Value | Direction / Purpose                                          |
+| ------------------------- | ------- | --------- | ------------------------------------------------------------ |
+| FUNC_CONFIRM              | 0       | `0x00`    | Application-layer confirmation connection                    |
+| FUNC_READ                 | 1       | `0x01`    | Master requests data from Outstation                         |
+| FUNC_WRITE                | 2       | `0x02`    | Master writes configuration/data to Outstation               |
+| FUNC_DIRECT_OPERATE       | 5       | `0x05`    | Execute a control directly                                   |
+| FUNC_DIRECT_OPERATE_NR    | 6       | `0x06`    | Direct control without application confirmation              |
+| FUNC_RESPONSE             | 129     | `0x81`    | Standard Response from outstation to the master request      |
+| FUNC_UNSOLICITED_RESPONSE | 130     | `0x82`    | Unsolicited Response (initiated autonomously by the outstation rather than replying to a direct request |
 
-
-
-
-
+Reference : https://www.dpstele.com/blog/how-to-understand-dnp3-protocol.php
 
 #### 2.2 Project DNP3 Master and Outstation Implementation 
 
@@ -88,7 +112,7 @@ The project will provide the multiple DNP clients to plug in the master to fetch
 
 ![](doc/img/s_03.png)
 
-**1.1.1 DNP3 Master Implementation **
+**2.2.1 DNP3 Master Implementation **
 
 The Master is typically the SCADA server or control center. Its responsibilities include:
 
@@ -101,7 +125,7 @@ The Master is typically the SCADA server or control center. Its responsibilities
 
 A single master often communicates with **many outstations** simultaneously.
 
-**1.1.2 DNP3 Outstation Implementation**
+**2.2.2 DNP3 Outstation Implementation**
 
 The **Outstation** is the field device, such as an RTU, PLC, or IED. Its responsibilities include:
 
@@ -117,4 +141,74 @@ An outstation generally serves one or more authorized masters, depending on the 
 
 
 ------
+
+### 3. Design of Virtual DNP3 RTU 
+
+This section introduces the detailed design of the DNP3 communication modules and demonstrates how they can be integrated into cyber twin environments. 
+
+#### 3.1 DNP3 Communication Module Design
+
+  The function implemented in this module will be enough of the Data Link, Transport and Application layers to:
+
+   \- Open a TCP session on the standard DNP3.0 port (20000)
+
+   \- Provide API: READ (function 0x01) Binary Inputs (Group1Var2), Analog Inputs
+
+​    (Group30Var1), Binary Output status (Group10Var2) and Analog Output
+
+​    status (Group40Var1)
+
+   \- DIRECT_OPERATE (function 0x05) a Binary Output (Group12Var1 / CROB) or
+
+​    an Analog Output (Group41Var1) to let a master WRITE a value into the
+
+​    outstation's point database
+
+   \- build syntactically correct DNP3 frames (valid sync bytes, length,
+
+​    control byte, addresses and CRC-16/DNP checksums) so the traffic is
+
+​    recognised natively by Wireshark's "dnp3.0" dissector on port 20000.
+
+  
+
+Remark: This is NOT a full/compliant DNP3 stack (no unsolicited responses, no multi-fragment transport reassembly, no confirm/retry handling, no serial support). It is intended for lab / training / detection-content use, not for production ICS deployments. The data types supported are limited to bool and int.
+
+**3.1.1 Design of DNP3 Server**
+
+DNP3.0 server class for host the PLC or RTU data and provide to clients. This obj needs to run in a sub-thread in the PLC/RTU's main thread. The server will keep the DNP3 data structure(point) as shown in the below diagram: 
+
+![](doc/img/s_07.png)
+
+Listens on TCP/20000 (the IANA-registered DNP3 port) and serves a small point database:
+
+ Binary Input    (Group 1  Var 2)  read-only, bool type
+
+ Analog Input    (Group 30 Var 1)   read-only, integer type 
+
+ Binary Output   (Group 10 Var 2) i  read/write ("parameters"), bool type
+
+ Analog Output   (Group 40 Var 1)read/write ("parameters"), integer type 
+
+```
+# Object group/variation pairs used by this implementation
+GRP_BINARY_INPUT = (1, 2)           # Binary Input w/ flags        (1 byte/obj)
+GRP_BINARY_OUTPUT_STATUS = (10, 2)  # Binary Output status w/flags (1 byte/obj)
+GRP_CROB = (12, 1)                  # Control Relay Output Block  (11 bytes/obj)
+GRP_ANALOG_INPUT = (30, 1)          # 32-bit Analog Input w/flag   (5 bytes/obj)
+GRP_ANALOG_OUTPUT_STATUS = (40, 1)  # 32-bit Analog Output status  (5 bytes/obj)
+GRP_ANALOG_OUTPUT_CMD = (41, 1)     # 32-bit Analog Output cmd     (5 bytes/obj)
+```
+
+A DNP3 master (client) can:
+
+ \* READ (function 0x01) any/all of the four object types above
+
+ \* DIRECT_OPERATE (function 0x05) a CROB (Group 12 Var 1) to flip a Binary
+
+  Output, or an Analog Output command (Group 41 Var 1) to set an Analog
+
+  Output -- i.e. WRITE a parameter's value.
+
+**3.1.2 Design of DNP3 Client**
 
