@@ -1,4 +1,4 @@
-# Python Virtual RTU Simulator With IEEE IEEE 1815-2021 DNP3.0 Communication Protocol
+# Python Virtual RTU Simulator With IEEE 1815-2021 DNP3.0 Communication Protocol
 
 **Project Design Purpose** : In this project, I did extend my previous Python-based virtual PLC/RTU/MU/IED simulator library (which interfaced to SCADA systems via Modbus-TCP and S7Comm, related link:  https://www.linkedin.com/pulse/python-virtual-plc-rtu-simulator-yuancheng-liu-elkgc)  by adding the support function for IEEE 1815-2021 Distributed Network Protocol 3 (DNP3) protocol. The new implementation consists of two main components :
 
@@ -266,3 +266,98 @@ The complete data flow of the cyber twin can be divided into three stages.
 
 ------
 
+### 4. Use Case Example
+
+The following Python modules are provided as baseline examples and can be extended to build more complex DNP3 simulators.
+
+| Program File                    | Execution Env | Description                                                  |
+| ------------------------------- | ------------- | ------------------------------------------------------------ |
+| `src/dnp3Comm.py`               | python 3.7+   | Core library implementing IEEE 1815-2021 DNP3.0 client/server APIs used to simulate data and command interactions between RTU and SCADA software. |
+| `src/dnp3CommTest.py`           | python 3.7+   | This module is the test case program for the (IEEE 1815) DNP3.0  library <dnp3Comm.py>, it will start a server in sub-thread and init 2 clients to test the data read and write function. |
+| `testcase/dnp3RtuServerTest.py` | python 3.7+   | A simple RTU simulation program use the DNP3 lib module  to simulate a PLC/RTU with one DNP3.0 serverand one execution logic to handle variable read and changeable value set from client side. |
+| `testcase/dnp3RtuClientTest.py` | python 3.7+   | A simple RTU simulation program use the DNP3 lib module  to simulate a HMI with one DNP3.0 client to read and write data from the connected DNP3.0 server side |
+
+#### 4.1 Implementing the Outstation(RTU) Module
+
+To implement the RTU module, init the parameters as shown below:
+
+```python
+class DNP3ServerThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.server = dnp3Comm.DNP3Server(maxConn=3)
+        # Add the parameters:
+        self.server.addBinaryInput(0, False)
+        self.server.addBinaryInput(1, True)
+        self.server.addAnalogInput(0, 0)
+        self.server.addBinaryOutput(0, False)
+        self.server.addBinaryOutput(1, True)
+        self.server.addAnalogOutput(0, 0)
+```
+
+Then in the thread main loop, implement the auto control logic as shown in the example below:
+
+```python
+    # Run the RTU logic
+    print("[_] Start the RTU ladder logic loop")
+    while True:
+        o1 = serverObj.getBinaryOutput(0)
+        serverObj.setBinaryInput(0, not o1)
+        o2 = serverObj.getBinaryOutput(1)
+        serverObj.setBinaryInput(1, not o2)
+        o3 = serverObj.getAnalogOutput(0)
+        print("o1:%s, o2:%s, o3:%s" %(str(o1), str(o2), str(o3)))
+        i1 = serverObj.getBinaryInput(0)
+        i2 = serverObj.getBinaryInput(1)
+        if i1 and i2:
+            serverObj.setAnalogInput(0, 100-o3)
+        else:
+            serverObj.setAnalogInput(0, 100+o3)
+        time.sleep(0.3)
+```
+
+
+
+#### 4.2 Implementing the Master(HMI) Module
+
+To init the client as shown below:
+
+```python
+SEV_IP = '127.0.0.1'
+SEV_PORT = dnp3Comm.DNP3_PORT
+
+def main():
+    print("DNP3 RTU Client Test Start ...")
+    dnp3Client = dnp3Comm.DNP3Client(SEV_IP, port=SEV_PORT)
+    dnp3Client.connect()
+
+    if dnp3Client.getConnectionState():
+        print("DNP3 RTU Client connected to server.")
+    else:
+        print("DNP3 RTU Client connect to server failed.")
+        exit()
+```
+
+For the data read and set control call the related function as shown below:
+
+```python
+print("[_] Start to read the RTU input data")
+data = dnp3Client.readAll()
+print("[_] Start to overwrite the RTU output data")
+ob1 = random.choice([True, False])
+ob2 = random.choice([True, False])
+oa1 = random.randint(0, 100)
+print("Output Binary 0: %s" % str(ob1))
+print("Output Binary 1: %s" % str(ob2))
+print("Output Analog 0: %s" % str(oa1))
+dnp3Client.writeBinaryOutput(0, ob1)
+dnp3Client.writeBinaryOutput(1, ob2)
+dnp3Client.writeAnalogOutput(0, oa1)
+time.sleep(2) # wait 1 sec to make sure the RTU data updated.
+```
+
+
+
+------
+
+> last edit by LiuYuancheng (liu_yuan_cheng@hotmail.com) by 14/08/2026 if you have any problem, please send me a message. 
