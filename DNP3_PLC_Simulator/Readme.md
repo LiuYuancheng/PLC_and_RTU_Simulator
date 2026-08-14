@@ -142,55 +142,45 @@ An outstation generally serves one or more authorized masters, depending on the 
 
 ------
 
-### 3. Design of Virtual DNP3 RTU 
+### 3. Design of Virtual DNP3 RTU Simulator
 
-This section introduces the detailed design of the DNP3 communication modules and demonstrates how they can be integrated into cyber twin environments. 
+This section presents the detailed design of the Virtual DNP3 RTU Simulator, including its DNP3 communication modules and integration with an OT cyber-twin environment.
 
 #### 3.1 DNP3 Communication Module Design
 
-  The function implemented in this module will be enough of the Data Link, Transport and Application layers to:
+The DNP3 communication module implements the lightweight essential functions using the Python standard library rather than a complete commercial or production-grade DNP3 stack. The current model provides the following capabilities:
 
-   \- Open a TCP session on the standard DNP3.0 port (20000)
+- Establish a TCP connection using the standard DNP3 port **TCP/20000**.
+- Process DNP3 Application Layer **READ (**`0x01`**)** requests.
+- Read **Binary Inputs (Group 1 Variation 2)**.
+- Read **Analog Inputs (Group 30 Variation 1)**.
+- Read **Binary Output Status (Group 10 Variation 2)**.
+- Read **Analog Output Status (Group 40 Variation 1)**.
+- Process **DIRECT OPERATE (**`0x05`**)** requests.
+- Operate a Binary Output using **Control Relay Output Block (CROB), Group 12 Variation 1**.
+- Set an Analog Output using **Analog Output Command, Group 41 Variation 1**.
+- Generate syntactically valid DNP3 frames containing the required synchronization bytes, length field, control information, source/destination addresses, and **CRC-16/DNP** checksums.
 
-   \- Provide API: READ (function 0x01) Binary Inputs (Group1Var2), Analog Inputs
+>  Remark: This is NOT a full/compliant DNP3 stack (no unsolicited responses, no multi-fragment transport reassembly, no confirm/retry handling, no serial support). It is intended for lab / training / detection-content use, not for production ICS deployments. The data types supported are limited to bool and int.
 
-​    (Group30Var1), Binary Output status (Group10Var2) and Analog Output
+**3.1.1 Design of DNP3 Server Module**
 
-​    status (Group40Var1)
+The DNP3 Server acts as the DNP3 Outstation endpoint and hosts the virtual RTU's DNP3 point database. It is designed to execute as a sub-thread within the main PLC/RTU simulator process, allowing DNP3 communication to operate concurrently with the physical-process interface and automatic control logic.
 
-   \- DIRECT_OPERATE (function 0x05) a Binary Output (Group12Var1 / CROB) or
-
-​    an Analog Output (Group41Var1) to let a master WRITE a value into the
-
-​    outstation's point database
-
-   \- build syntactically correct DNP3 frames (valid sync bytes, length,
-
-​    control byte, addresses and CRC-16/DNP checksums) so the traffic is
-
-​    recognised natively by Wireshark's "dnp3.0" dissector on port 20000.
-
-  
-
-Remark: This is NOT a full/compliant DNP3 stack (no unsolicited responses, no multi-fragment transport reassembly, no confirm/retry handling, no serial support). It is intended for lab / training / detection-content use, not for production ICS deployments. The data types supported are limited to bool and int.
-
-**3.1.1 Design of DNP3 Server**
-
-DNP3.0 server class for host the PLC or RTU data and provide to clients. This obj needs to run in a sub-thread in the PLC/RTU's main thread. The server will keep the DNP3 data structure(point) as shown in the below diagram: 
+The server will keep the DNP3 data structure(point) as shown in the below diagram: 
 
 ![](doc/img/s_07.png)
 
-Listens on TCP/20000 (the IANA-registered DNP3 port) and serves a small point database:
+| Object               | Group / Variation | Access     | Python Type | Description                                |
+| -------------------- | ----------------- | ---------- | ----------- | ------------------------------------------ |
+| Binary Input         | Group 1 Var 2     | Read-only  | `bool`      | Digital/process status from physical world |
+| Analog Input         | Group 30 Var 1    | Read-only  | `int`       | Analog measurement from physical world     |
+| Binary Output Status | Group 10 Var 2    | Read/Write | `bool`      | Digital output state to physical world     |
+| Analog Output Status | Group 40 Var 1    | Read/Write | `int`       | Analog output state to physical world      |
 
- Binary Input    (Group 1  Var 2)  read-only, bool type
+The implementation also uses the following DNP3 object definitions for control operations:
 
- Analog Input    (Group 30 Var 1)   read-only, integer type 
-
- Binary Output   (Group 10 Var 2) i  read/write ("parameters"), bool type
-
- Analog Output   (Group 40 Var 1)read/write ("parameters"), integer type 
-
-```
+```python
 # Object group/variation pairs used by this implementation
 GRP_BINARY_INPUT = (1, 2)           # Binary Input w/ flags        (1 byte/obj)
 GRP_BINARY_OUTPUT_STATUS = (10, 2)  # Binary Output status w/flags (1 byte/obj)
@@ -200,15 +190,79 @@ GRP_ANALOG_OUTPUT_STATUS = (40, 1)  # 32-bit Analog Output status  (5 bytes/obj)
 GRP_ANALOG_OUTPUT_CMD = (41, 1)     # 32-bit Analog Output cmd     (5 bytes/obj)
 ```
 
-A DNP3 master (client) can:
+A DNP3 Master can currently perform two major categories of operations:
 
- \* READ (function 0x01) any/all of the four object types above
+- **READ (**`0x01`**)** — retrieve the supported binary and analog input/output status objects.
+- **DIRECT OPERATE (**`0x05`**)** — operate a CROB to change a Binary Output or send an Analog Output Command to change an Analog Output.
 
- \* DIRECT_OPERATE (function 0x05) a CROB (Group 12 Var 1) to flip a Binary
+**3.1.2 Design of DNP3 Client Module**
 
-  Output, or an Analog Output command (Group 41 Var 1) to set an Analog
+The **DNP3 Client** implements the Master-side interface and is designed as a reusable **plug-in component** that can be embedded into other Python applications.
 
-  Output -- i.e. WRITE a parameter's value.
+The client hides the lower-level DNP3 packet construction and parsing from the application developer. Other simulator modules, SCADA/HMI applications, and RTU control components can therefore use simple Python functions to communicate with a DNP3 Outstation. The current client API provides four primary functions:
 
-**3.1.2 Design of DNP3 Client**
+| Function                          | Purpose                                            |
+| --------------------------------- | -------------------------------------------------- |
+| `connect(ipaddress)`              | Establish a connection to a DNP3 Server/Outstation |
+| `readAll()`                       | Read all supported input and output data           |
+| `writeBinaryOutput(index, value)` | Change a Binary Output parameter value             |
+| `writeAnalogOutput(index, value)` | hange an Analog Output value                       |
+
+The `connect()` function allows the same client implementation to establish connections with different Outstations. Consequently, a Master application can instantiate multiple DNP3 clients to communicate with **one or many RTUs/Outstations**.
+
+#### 3.2 RTU Framework Cyber-Twin Integration
+
+To demonstrate the application of the Virtual DNP3 RTU Simulator, the DNP3 communication module was integrated into a power-grid cyber-twin environment containing a simulated gas power generator and transformer/metering-unit components.
+
+The overall integration architecture is shown below: 
+
+![](doc/img/s_08.png)
+
+The DNP3 communication module is integrated directly into the Level 1 RTU framework. The RTU frame work will have 3 main components: 
+
+- Physical-World Connectors
+- RTU Automatic Control Logic
+- DNP3 Server and DNP3 Clients 
+
+**3.2.1 Physical-World Connectors**
+
+The framework provides multiple UDP-based physical-world connectors for receiving simulated sensor and process data from external physical-process simulators. 
+
+For example, the Gas Power Generator Simulator can generate operational parameters such as: `Output voltage` , `Frequency`, `Oil pump pressure` , `Motor RPM` , `Pump status` and `Motor status`. These values are transmitted to the RTU Framework through the simulated UDP interface. The framework then maps the received values into the corresponding DNP3 point database entries, such as the `Binary Input` and `Analog Input` dictionaries.
+
+**3.2.2 RTU Automatic Control Logic**
+
+The RTU Framework contains internal automatic control logic that processes the received process values and determines appropriate control actions.
+
+For example the control sequence of temperature: 
+
+```mermaid
+flowchart LR
+    A[Transformer Temperature] --> B
+    B[Control Logic : Temperature too high?] --> |No|D
+    B[Control Logic : Temperature too high?] --> |Yes overheat|E
+    D[Normal operation]
+    E[Reduce current] --> F
+    F[Analog Output / Binary Output]
+```
+
+The control logic continuously reads the input data, evaluates predefined operating conditions, and updates the corresponding output parameters. The resulting control values are stored in the corresponding Binary Output Status and Analog Output Status points.
+
+**3.2.3 DNP3 Server and DNP3 Clients**
+
+The RTU Framework contains a DNP3 Server that exposes the RTU's process data to Level 2 SCADA/HMI systems.
+
+At the same time, the framework can contain multiple **DNP3 Clients** for communicating with other field devices, such as Metering Units (MUs).
+
+**3.2.4 Generator and Transformer Data Flow**
+
+The complete data flow of the cyber twin can be divided into three stages.
+
+- **Stage 1 – Process Data Acquisition** : The Gas Power Generator Simulator and Transformer Simulator generate simulated physical-process data. The RTU receives generator data through UDP and receives additional metering information through DNP3 communication with the Metering Unit. 
+- **Stage 2 – Control Processing** : The RTU Framework periodically collects the available sensor and metering data and passes it to the internal control logic. The control logic evaluates the current state of the simulated power system and updates the output parameters accordingly.
+- **Stage 3 – Supervisory Monitoring and Control** : The DNP3 Server exposes the RTU's process and control points to the Level 2 HMI/SCADA applications. Each HMI can use one or more DNP3 Clients to connect to the appropriate RTU or Metering Unit and perform monitoring or control operations.
+
+
+
+------
 
