@@ -21,6 +21,21 @@ The new implementation consists of two main components :
 
 [TOC]
 
+- [Python Virtual RTU Simulator With IEEE 1815-2021 DNP3.0 Communication Protocol](#python-virtual-rtu-simulator-with-ieee-1815-2021-dnp30-communication-protocol)
+    + [1. Project Introduction](#1-project-introduction)
+      - [1.1 DNP3 Simulation System Overview](#11-dnp3-simulation-system-overview)
+      - [1.2 DNP3 System ISA-95 Architecture](#12-dnp3-system-isa-95-architecture)
+    + [2. DNP3 Protocol Background Knowledge](#2-dnp3-protocol-background-knowledge)
+      - [2.1 NDP 3 Protocol Packet Structure](#21-ndp-3-protocol-packet-structure)
+      - [2.2 Project DNP3 Master and Outstation Implementation](#22-project-dnp3-master-and-outstation-implementation)
+    + [3. Design of Virtual DNP3 RTU Simulator](#3-design-of-virtual-dnp3-rtu-simulator)
+      - [3.1 DNP3 Communication Module Design](#31-dnp3-communication-module-design)
+      - [3.2 RTU Framework Cyber-Twin Integration](#32-rtu-framework-cyber-twin-integration)
+    + [4. Use Case Example](#4-use-case-example)
+      - [4.1 Implementing the Outstation(RTU) Module](#41-implementing-the-outstation-rtu--module)
+      - [4.2 Implementing the Master(HMI) Module](#42-implementing-the-master-hmi--module)
+    + [5. Conclusion](#5-conclusion)
+
 ------
 
 ### 1. Project Introduction
@@ -210,7 +225,7 @@ The client hides the lower-level DNP3 packet construction and parsing from the a
 | `connect(ipaddress)`              | Establish a connection to a DNP3 Server/Outstation |
 | `readAll()`                       | Read all supported input and output data           |
 | `writeBinaryOutput(index, value)` | Change a Binary Output parameter value             |
-| `writeAnalogOutput(index, value)` | hange an Analog Output value                       |
+| `writeAnalogOutput(index, value)` | Change an Analog Output value                      |
 
 The `connect()` function allows the same client implementation to establish connections with different Outstations. Consequently, a Master application can instantiate multiple DNP3 clients to communicate with **one or many RTUs/Outstations**.
 
@@ -278,7 +293,7 @@ The following Python modules are provided as baseline examples and can be extend
 | ------------------------------- | ------------- | ------------------------------------------------------------ |
 | `src/dnp3Comm.py`               | python 3.7+   | Core library implementing IEEE 1815-2021 DNP3.0 client/server APIs used to simulate data and command interactions between RTU and SCADA software. |
 | `src/dnp3CommTest.py`           | python 3.7+   | This module is the test case program for the (IEEE 1815) DNP3.0  library <dnp3Comm.py>, it will start a server in sub-thread and init 2 clients to test the data read and write function. |
-| `testcase/dnp3RtuServerTest.py` | python 3.7+   | A simple RTU simulation program use the DNP3 lib module  to simulate a PLC/RTU with one DNP3.0 serverand one execution logic to handle variable read and changeable value set from client side. |
+| `testcase/dnp3RtuServerTest.py` | python 3.7+   | A simple RTU simulation program use the DNP3 lib module  to simulate a PLC/RTU with one DNP3.0 server and one execution logic to handle variable read and changeable value set from client side. |
 | `testcase/dnp3RtuClientTest.py` | python 3.7+   | A simple RTU simulation program use the DNP3 lib module  to simulate a HMI with one DNP3.0 client to read and write data from the connected DNP3.0 server side |
 
 #### 4.1 Implementing the Outstation(RTU) Module
