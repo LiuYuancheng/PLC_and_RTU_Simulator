@@ -17,12 +17,16 @@
 #-----------------------------------------------------------------------------
 
 import datetime
-import logging
 import socket
+import socketserver
 import struct
+import threading
+import traceback
+import Log
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
+DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 102
 ACCESS_ERRORS = {
     0: 'object-invalidated', 
@@ -475,3 +479,225 @@ class Transport(object):
         if kind != 'DT':
             raise ConnectionError('transport connection released by peer')
         return parse_spdu(data)
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+class MmsError(Exception):
+    """Generic MMS / protocol error."""
+
+class MmsAccessError(MmsError):
+    """MMS DataAccessError (a single variable could not be read / written)."""
+    def __init__(self, code):
+        MmsError.__init__(self, ACCESS_ERRORS.get(code, 'data-access-error-%d' % code))
+        self.code = code
+
+def coerce(mms_type, value):
+    if mms_type == 'float':      # keep what a 32 bit float can really hold
+        return struct.unpack('>f', struct.pack('>f', float(value)))[0]
+    if mms_type == 'double':
+        return float(value)
+    if mms_type in ('integer', 'unsigned'):
+        value = int(value)
+        if mms_type == 'unsigned' and value < 0:
+            raise MmsAccessError(VALUE_INVALID)
+        return value
+    if mms_type == 'boolean':
+        return bool(value)
+    return value
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+class IedModel(object):
+    """Thread-safe store of all variables."""
+
+    def __init__(self, data):
+        self.lock = threading.RLock()
+        self.data = {d: {i: [t, coerce(t, v), bool(w)] for i, (t, v, w) in items.items()}
+                     for d, items in data.items()}
+
+    def domains(self):
+        return sorted(self.data)
+
+    def variables(self, domain):
+        with self.lock:
+            return sorted(self.data.get(domain, {}))
+
+    def _entry(self, domain, item):
+        try:
+            return self.data[domain][item]
+        except KeyError:
+            raise MmsAccessError(NON_EXISTENT)
+
+    def read(self, domain, item):
+        with self.lock:
+            entry = self._entry(domain, item)
+            return entry[0], entry[1]
+
+    def write(self, domain, item, mms_type, value):
+        with self.lock:
+            entry = self._entry(domain, item)
+            if not entry[2]:
+                raise MmsAccessError(ACCESS_DENIED)
+            if not types_compatible(entry[0], mms_type):
+                raise MmsAccessError(TYPE_INCONSISTENT)
+            entry[1] = coerce(entry[0], value)
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+class MmsHandler(socketserver.BaseRequestHandler):
+    """One thread per client connection."""
+
+    def handle(self):
+        self.peer = '%s:%d' % self.client_address[:2]
+        self.model = self.server.model
+        self.request.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        Log.info('[%s] TCP connection opened', self.peer)
+        try:
+            self.conn = Transport(self.request)
+            if self.associate():
+                self.serve()
+        except (ConnectionError, OSError) as exc:
+            Log.info('[%s] connection ended (%s)', self.peer, exc)
+        except Exception:
+            Log.error('[%s] protocol error\n%s', self.peer, traceback.format_exc())
+        finally:
+            Log.info('[%s] closed', self.peer)
+
+    # ---- association (COTP connect + session/presentation/ACSE/MMS initiate) ------------
+    def associate(self):
+        kind, tpdu = recv_cotp(self.request)
+        if kind != 0xE0:
+            Log.warning('[%s] expected COTP connect request', self.peer)
+            return False
+        dst, src, params = parse_cotp_connect(tpdu)
+        size_code = min(params.get(0xC0, b'\x0a')[0], 0x0D)
+        self.conn.tpdu_size = 1 << size_code
+        send_tpkt(self.request, build_cotp_connect(
+            0xD0, src, 0x0001, size_code,
+            params.get(0xC1, b'\x00\x01'), params.get(0xC2, b'\x00\x01')))
+
+        si, user = self.conn.recv_spdu()
+        if si != 0x0D:
+            Log.warning('[%s] expected session CONNECT', self.peer)
+            return False
+        aarq = dig(user, [0x31, 0xA2, 0x61, 0x30, 0xA0])
+        request = dig(aarq, [0x60, 0xBE, 0x28, 0xA0])
+        want = parse_initiate(request)
+        response = build_initiate(False, min(want['max_pdu'], 64000),
+                                  min(want['outstanding'], 10), min(want['nesting'], 5))
+        self.conn.send_spdu(build_ses_connect(build_cpa_type(build_aare(response)), accept=True))
+        Log.info('[%s] MMS association established', self.peer)
+        return True
+
+    # ---- main request loop --------------------------------------------------------------
+    def serve(self):
+        while True:
+            kind, data = recv_cotp(self.request)
+            if kind != 'DT':
+                return
+            si, user = parse_spdu(data)
+            if si == 0x01:
+                reply = self.process(dig(user, [0x61, 0x30, 0xA0]))
+                if reply:
+                    self.conn.send_mms(reply)
+            elif si == 0x09:        # session FINISH (ACSE release request)
+                self.conn.send_spdu(build_ses_release(0x0A, build_pres_acse(RLRE)))
+                Log.info('[%s] association released', self.peer)
+                return
+            else:                   # ABORT / DISCONNECT
+                return
+
+    def process(self, pdu):
+        tag, val, _ = parse_tlv(pdu)
+        if tag == 0xA0:
+            return self.confirmed_request(val)
+        if tag == 0x8B:             # conclude request
+            Log.info('[%s] MMS conclude', self.peer)
+            return b'\x8c\x00'
+        Log.warning('[%s] ignoring MMS PDU 0x%02X', self.peer, tag)
+        return None
+
+    def confirmed_request(self, val):
+        items = parse_all(val)
+        invoke = items[0][1]
+        svc_tag, svc_val = items[1]
+        try:
+            if svc_tag == 0xA4:
+                body = self.svc_read(svc_val)
+            elif svc_tag == 0xA5:
+                body = self.svc_write(svc_val)
+            elif svc_tag == 0xA1:
+                body = self.svc_get_name_list(svc_val)
+            else:
+                Log.warning('[%s] unsupported service 0x%02X', self.peer, svc_tag)
+                return tlv(0xA4, tlv(0x80, invoke) + tlv(0x81, b'\x01'))   # reject: unrecognized-service
+        except (ValueError, IndexError) as exc:
+            Log.warning('[%s] invalid request: %s', self.peer, exc)
+            return tlv(0xA4, tlv(0x80, invoke) + tlv(0x81, b'\x04'))       # reject: invalid-argument
+        return tlv(0xA1, tlv(0x02, invoke) + body)
+
+    # ---- MMS services -------------------------------------------------------------------
+    def svc_read(self, content):
+        names = parse_variable_list(dig(content, [0xA1, 0xA0]))
+        results = b''
+        for domain, item in names:
+            try:
+                mms_type, value = self.model.read(domain, item)
+                results += encode_data(mms_type, value)
+                Log.info('[%s] READ  %s/%s = %s', self.peer, domain, item, format_value(mms_type, value))
+            except MmsAccessError as exc:
+                results += tlv(0x80, bytes([exc.code]))
+                Log.info('[%s] READ  %s/%s -> %s', self.peer, domain, item, exc)
+        return tlv(0xA4, tlv(0xA1, results))
+
+    def svc_write(self, content):
+        items = parse_all(content)
+        names = parse_variable_list(items[0][1])
+        values = parse_all(items[1][1])
+        if items[0][0] != 0xA0 or items[1][0] != 0xA0 or len(names) != len(values):
+            raise ValueError('variable / data list mismatch')
+        results = b''
+        for (domain, item), (tag, raw) in zip(names, values):
+            try:
+                mms_type, value = decode_data(tag, raw)
+                self.model.write(domain, item, mms_type, value)
+                results += tlv(0x81, b'')
+                Log.info('[%s] WRITE %s/%s = %s', self.peer, domain, item, format_value(mms_type, value))
+            except MmsAccessError as exc:
+                results += tlv(0x80, bytes([exc.code]))
+                Log.info('[%s] WRITE %s/%s -> %s', self.peer, domain, item, exc)
+        return tlv(0xA5, results)
+
+    def svc_get_name_list(self, content):
+        obj_class, scope, after = None, (0x80, b''), None
+        for tag, val in parse_all(content):
+            if tag == 0xA0:
+                obj_class = int.from_bytes(parse_tlv(val)[1], 'big')
+            elif tag == 0xA1:
+                scope = parse_tlv(val)[:2]
+            elif tag == 0x82:
+                after = val.decode()
+        if obj_class == 9:                              # domains (Logical devices)
+            names = self.model.domains()
+        elif obj_class == 0 and scope[0] == 0x81:       # named variables of one domain
+            names = self.model.variables(scope[1].decode())
+        else:
+            names = []
+        if after is not None:
+            names = [n for n in names if n > after]
+        Log.info('[%s] GetNameList class=%s -> %d names', self.peer, obj_class, len(names))
+        ids = b''.join(tlv(0x1A, n.encode()) for n in names)
+        return tlv(0xA1, tlv(0xA0, ids) + tlv(0x81, b'\x00'))
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+class MmsServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+    def __init__(self, host = '0.0.0.0', port = 102, model=None):
+        self.host=host
+        self.port=int(port)
+        self.model = model
+        socketserver.ThreadingTCPServer.__init__(self, (self.host, self.port), MmsHandler)
+        
