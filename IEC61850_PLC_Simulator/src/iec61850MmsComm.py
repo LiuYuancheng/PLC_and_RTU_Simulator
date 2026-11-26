@@ -139,7 +139,6 @@ def enc_int(v):
         except OverflowError:
             n += 1
 
-
 # --------------------------------------------------------------------------------------
 # MMS data values process functions
 
@@ -547,7 +546,9 @@ class IedModel(object):
 # --------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------
 class MmsHandler(socketserver.BaseRequestHandler):
-    """One thread per client connection."""
+    """ One thread per client connection. the handler will get the 'model' obj directly 
+        from the server obj in its handle() function. 
+    """
 
     def handle(self):
         self.peer = '%s:%d' % self.client_address[:2]

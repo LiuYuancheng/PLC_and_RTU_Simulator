@@ -68,6 +68,16 @@ def main():
     client.connect()
     domanName = client.get_domains()
     print(domanName)
+    # get the vendor information
+    val1 = client.read('IED1LD0', 'LLN0$DC$NamPlt$vendor')
+    showTestResult(('string', 'WagosElt'), val1, 'client get Logical Node Zero : LLN0$DC$NamPlt$vendor')
+    # get the model name
+    val2 = client.read('IED1LD0', 'LLN0$DC$NamPlt$swRev')
+    showTestResult(('string', '0.0.1'), val2, 'client get Logical Node Zero : LLN0$DC$NamPlt$swRev')
+    val3 = client.read('IED1LD0', 'LLN0$ST$Beh$stVal')
+    showTestResult(('integer', 1), val3, 'client get Logical Node Zero : LLN0$LN0$mod')
+
+    print("[_] Test client data reading")
     val1 = client.read('IED1LD0', 'MMXU1$MX$Hz$mag$f')
     showTestResult(('float', 50.0), val1, 'client get measurement : MMXU1$MX$Hz$mag$f')
     val2 = client.read('IED1LD0', 'MMXU1$MX$TotW$mag$f')
@@ -92,6 +102,15 @@ def main():
     showTestResult(('integer', 200), val1, 'server get GGIO : GGIO1$SP$IntSP1$setVal')
     val2 = client.read('IED1LD0', 'GGIO1$SP$IntSP1$setVal')
     showTestResult(('integer', 200), val2, 'client get GGIO : GGIO1$SP$IntSP1$setVal')
+    
+    print("[_] Test client modify un-writable value")
+    try:
+        client.write('IED1LD0', 'LLN0$DC$NamPlt$vendor', 'string', 'anyvender')
+    except Exception as e:
+        print(e)
+    time.sleep(0.5)
+    val1 = client.read('IED1LD0', 'LLN0$DC$NamPlt$vendor')
+    showTestResult(('string', 'WagosElt'), val1, 'client get Logical Node Zero : LLN0$DC$NamPlt$vendor')
 
     time.sleep(1)
     client.close()
