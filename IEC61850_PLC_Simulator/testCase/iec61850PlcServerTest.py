@@ -34,9 +34,9 @@ DEFAULT_MODEL = {
         'LLN0$DC$NamPlt$vendor':          ('string', 'WAGO_PFC200', False),
         'LLN0$DC$NamPlt$swRev':           ('string', '1.0.0', False),
         'LLN0$ST$Beh$stVal':              ('integer', 1, False),
-        'MMXU1$MX$Hz$mag$f':              ('float', 50.0, False),
-        'MMXU1$MX$TotW$mag$f':            ('float', 1250.5, False),
-        'MMXU1$MX$PhV$phsA$cVal$mag$f':   ('float', 230.1, False),
+        'MMXU1$MX$Hz$mag$f':              ('float', 50.0, True),
+        'MMXU1$MX$TotW$mag$f':            ('float', 1250.5, True),
+        'MMXU1$MX$PhV$phsA$cVal$mag$f':   ('float', 230.1, True),
         'GGIO1$ST$Ind1$stVal':            ('boolean', False, True),
         'GGIO1$ST$Ind2$stVal':            ('boolean', True, True),
         'GGIO1$MX$AnIn1$mag$f':           ('float', 49.98, True),
@@ -75,11 +75,19 @@ class Iec61850MmsServerThread(threading.Thread):
         self.server.addModel(self.modelName, venderName='WAGO_PFC200')
         # Add all the parameters
         for item, (mmsType, initVal, writable) in DEFAULT_MODEL[self.modelName].items():
-            self.server.addParamter(self.modelName, item, mmsType, initVal, writable)
+            self.server.addLogicNode(self.modelName, item, mmsType, initVal, writable)
 
     def run(self):
         self.server.startService()
 
+    def getLnVal(self, itemName):
+        return self.server.getParamterVal(self.modelName, itemName)
+
+    def setLnVal(self, itemName, val):
+        self.server.setParamterVal(self.modelName, itemName, val)
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 def plcMainThread():
     print("[_] Init the IEC61850MMS server")
     serverThread = Iec61850MmsServerThread()
@@ -88,11 +96,20 @@ def plcMainThread():
     print("[_] IEC61850MMS server is running ...")
     print("[_] Start the PLC ladder logic loop")
     while True:
-        time.sleep(1)
-        
-
-
-
+        time.sleep(0.2)
+        # Simulate PLC read IED sensor value from real physical device
+        num1 = round(random.uniform(0, 100), 1)
+        num2 = round(random.uniform(0, 100), 1)
+        # Set the PLC measurement parameters
+        serverThread.setLnVal('MMXU1$MX$Hz$mag$f', num1)
+        serverThread.setLnVal('MMXU1$MX$TotW$mag$f', num2)
+        serverThread.setLnVal('MMXU1$MX$PhV$phsA$cVal$mag$f', num1+num2)
+        rst = (num1 + num2) <= 100
+        serverThread.setLnVal('XCBR1$CO$Pos$ctlVal', rst)
+        # get the client set GGIO parameters
+        ggio1 = serverThread.getLnVal('GGIO1$MX$AnIn1$mag$f')
+        ggio2 = serverThread.getLnVal('GGIO1$SP$IntSP1$setVal')
+        serverThread.setLnVal('GGIO1$SP$AnSP1$setMag$f', ggio1[1]+ggio2[1])
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
