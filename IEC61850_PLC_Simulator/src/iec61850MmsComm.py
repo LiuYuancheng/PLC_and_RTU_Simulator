@@ -15,7 +15,9 @@
 # Copyright:   Copyright (c) 2026 Liu Yuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
+# https://softwaretoolbox.com/resources/what-is-iec61850
 
+import random
 import datetime
 import socket
 import socketserver
@@ -691,13 +693,229 @@ class MmsHandler(socketserver.BaseRequestHandler):
 
 # --------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------
-class MmsServer(socketserver.ThreadingTCPServer):
+class Iec61850MmsServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
 
-    def __init__(self, host = '0.0.0.0', port = 102, model=None):
-        self.host=host
-        self.port=int(port)
-        self.model = model
+    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, pollInterval=0.5):
+        self.host = host
+        self.port = int(port)
+        self.pollInterval = float(pollInterval)
         socketserver.ThreadingTCPServer.__init__(self, (self.host, self.port), MmsHandler)
-        
+        self.model = {}
+        self.ideModel = None
+
+    def addModel(self, iedName, venderName='IDE_Simulator', version='0.0.1', state=1):
+        # { item : (mms_type, initial_value, writable) }
+        self.model[iedName] = {
+            'LLN0$DC$NamPlt$vendor' : ['string', str(venderName), False],
+            'LLN0$DC$NamPlt$swRev'  : ['string', str(version), False],
+            'LLN0$ST$Beh$stVal'     : ['integer', int(state), False],
+        }
+
+    def addLogicNode(self, iedName, item, mms_type, value, writable=False):
+        if iedName not in self.model.keys(): return False
+        self.model[iedName][item] = [mms_type, value, writable]
+        return True
+
+    def startService(self):
+        print("Start MMS server on %s:%d" % (self.host, self.port))
+        self.ideModel = IedModel(self.model)
+        self.serve_forever(poll_interval=self.pollInterval)
+
+    def getIDEModelObj(self):
+        return self.ideModel
+
+    def getParamterVal (self, iedName, item):
+        if iedName not in self.model.keys(): return None
+        if item not in self.model[iedName].keys(): return None
+        return self.ideModel.read(iedName, item)
+
+    def setParamterVal (self, iedName, item, value):
+        if iedName not in self.model.keys(): return False
+        if item not in self.model[iedName].keys(): return False
+        if self.model[iedName][item][2] == False: return False
+        self.ideModel.write(iedName, item, self.model[iedName][item][0], value)
+        return True
+
+    def stopService(self):
+        self.shutdown()
+        self.server_close()
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+class Iec61850MmsClient(object):
+    def __init__(self, host, port=DEFAULT_PORT, timeout=5.0):
+        self.host, self.port, self.timeout = host, port, timeout
+        self.sock = None
+        self.conn = None
+        self.invoke_id = 0
+
+    # --------------------------------------------------------------------------------------
+    def connect(self):
+        try:
+            self.sock = socket.create_connection((self.host, self.port), self.timeout)
+        except OSError as exc:
+            raise MmsError('cannot connect to %s:%d - %s' % (self.host, self.port, exc))
+        self.sock.settimeout(self.timeout)
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.conn = Transport(self.sock)
+        try:
+            self._associate()
+        except (ConnectionError, OSError, ValueError) as exc:
+            self.sock.close()
+            raise MmsError('association failed: %s' % exc)
+
+    # --------------------------------------------------------------------------------------
+    def _associate(self):
+        ref = random.randint(1, 0xFFFE)
+        send_tpkt(self.sock, build_cotp_connect(0xE0, 0, ref, 0x0A, b'\x00\x01', b'\x00\x01'))
+        kind, tpdu = recv_cotp(self.sock)
+        if kind != 0xD0:
+            raise MmsError('COTP connection refused')
+        _, _, params = parse_cotp_connect(tpdu)
+        self.conn.tpdu_size = 1 << params.get(0xC0, b'\x0a')[0]
+
+        aarq = build_aarq(build_initiate(True))
+        self.conn.send_spdu(build_ses_connect(build_cp_type(aarq)))
+        si, user = self.conn.recv_spdu()
+        if si != 0x0E:
+            raise MmsError('association refused by server (SPDU 0x%02X)' % si)
+        aare = dig(user, [0x31, 0xA2, 0x61, 0x30, 0xA0])
+        if int.from_bytes(dig(aare, [0x61, 0xA2, 0x02]), 'big') != 0:
+            raise MmsError('ACSE association rejected')
+        self.negotiated = parse_initiate(dig(aare, [0x61, 0xBE, 0x28, 0xA0]))
+
+    # --------------------------------------------------------------------------------------
+    def _request(self, service):
+        """Send one confirmed request, return (service_tag, service_content) of the response."""
+        if not self.sock:
+            raise MmsError('not connected')
+        self.invoke_id += 1
+        pdu = tlv(0xA0, tlv(0x02, enc_int(self.invoke_id)) + service)
+        try:
+            self.conn.send_mms(pdu)
+            while True:
+                si, user = self.conn.recv_spdu()
+                if si != 0x01:
+                    raise MmsError('connection released by server')
+                tag, val, _ = parse_tlv(dig(user, [0x61, 0x30, 0xA0]))
+                if tag == 0xA1:
+                    items = parse_all(val)
+                    if int.from_bytes(items[0][1], 'big', signed=True) == self.invoke_id:
+                        return items[1]
+                elif tag == 0xA2:
+                    raise MmsError('server returned a confirmed-error')
+                elif tag == 0xA4:
+                    raise MmsError('server rejected the request')
+                # anything else (e.g. unconfirmed reports) is skipped
+        except socket.timeout:
+            raise MmsError('timeout waiting for the server')
+        except (ConnectionError, OSError, ValueError, IndexError) as exc:
+            raise MmsError('communication error: %s' % exc)
+
+    # --------------------------------------------------------------------------------------
+    def _name_list(self, object_class, scope):
+        names, after = [], b''
+        while True:
+            service = tlv(0xA1, tlv(0xA0, tlv(0x80, bytes([object_class]))) + tlv(0xA1, scope) + after)
+            tag, val = self._request(service)
+            if tag != 0xA1:
+                raise MmsError('unexpected GetNameList response')
+            page, more = [], True
+            for t, v in parse_all(val):
+                if t == 0xA0:
+                    page = [x.decode() for _, x in parse_all(v)]
+                elif t == 0x81:
+                    more = v != b'\x00'
+            names += page
+            if not more or not page:
+                return names
+            after = tlv(0x82, page[-1].encode())
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    # --------------------------------------------------------------------------------------
+    def read_many(self, names):
+        """[(domain, item), ...] -> list of (type, value); a failed item is a MmsAccessError."""
+        tag, val = self._request(tlv(0xA4, tlv(0xA1, build_variable_list(names))))
+        if tag != 0xA4:
+            raise MmsError('unexpected read response')
+        results = []
+        for t, v in parse_all(dig(val, [0xA1])):
+            results.append(MmsAccessError(v[0]) if t == 0x80 else decode_data(t, v))
+        return results
+
+    # --------------------------------------------------------------------------------------
+    def read(self, domain, item):
+        """-> (mms_type, value); raises MmsAccessError when the server denies access."""
+        result = self.read_many([(domain, item)])[0]
+        if isinstance(result, MmsAccessError):
+            raise result
+        return result
+
+    # --------------------------------------------------------------------------------------
+    def write(self, domain, item, mms_type, value):
+        mms_type = normalize_type(mms_type)
+        data = encode_data(mms_type, value)
+        tag, val = self._request(tlv(0xA5, build_variable_list([(domain, item)]) + tlv(0xA0, data)))
+        if tag != 0xA5:
+            raise MmsError('unexpected write response')
+        for t, v in parse_all(val):
+            if t == 0x80:
+                raise MmsAccessError(v[0])
+
+    # --------------------------------------------------------------------------------------
+    def write_auto(self, domain, item, text, mms_type=None):
+        """Write a value given as text; the data type is read from the server when not given."""
+        if mms_type is None:
+            mms_type = self.read(domain, item)[0]
+        else:
+            mms_type = normalize_type(mms_type)
+        self.write(domain, item, mms_type, parse_value(mms_type, text))
+        return mms_type
+
+    # --------------------------------------------------------------------------------------
+    def get_domains(self):
+        """Names of the logical devices (MMS domains)."""
+        return self._name_list(9, tlv(0x80, b''))
+
+    def get_variables(self, domain):
+        """Names of all variables (LN$FC$DO$DA) of one domain."""
+        return self._name_list(0, tlv(0x81, domain.encode()))
+
+    # --------------------------------------------------------------------------------------
+    def close(self):
+        """Graceful release: MMS conclude, then ACSE release (session FINISH)."""
+        if not self.sock:
+            return
+        try:
+            self.conn.send_mms(b'\x8b\x00')
+            self.conn.recv_spdu()
+            self.conn.send_spdu(build_ses_release(0x09, build_pres_acse(RLRQ)))
+            self.conn.recv_spdu()
+        except (ConnectionError, OSError, ValueError):
+            pass
+        finally:
+            self.sock.close()
+            self.sock = None
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+def main():
+    server = Iec61850MmsServer()
+    server.addModel('IED1')
+    server.addLogicNode('IED1', 'MMXU1$MX$Hz$mag$f', 'float', 50.0)
+    server.startService()
+    print("Test get data value")
+    print(server.getParamterVal('IED1', 'MMXU1$MX$Hz$mag$f'))
+
+# --------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
+if __name__ == '__main__':
+    main()    
