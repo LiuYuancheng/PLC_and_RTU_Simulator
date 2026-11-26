@@ -702,40 +702,40 @@ class Iec61850MmsServer(socketserver.ThreadingTCPServer):
         self.port = int(port)
         self.pollInterval = float(pollInterval)
         socketserver.ThreadingTCPServer.__init__(self, (self.host, self.port), MmsHandler)
-        self.model = {}
-        self.ideModel = None
+        self.modelDict = {}
+        self.model = None
 
     def addModel(self, iedName, venderName='IDE_Simulator', version='0.0.1', state=1):
         # { item : (mms_type, initial_value, writable) }
-        self.model[iedName] = {
+        self.modelDict[iedName] = {
             'LLN0$DC$NamPlt$vendor' : ['string', str(venderName), False],
             'LLN0$DC$NamPlt$swRev'  : ['string', str(version), False],
             'LLN0$ST$Beh$stVal'     : ['integer', int(state), False],
         }
 
     def addLogicNode(self, iedName, item, mms_type, value, writable=False):
-        if iedName not in self.model.keys(): return False
-        self.model[iedName][item] = [mms_type, value, writable]
+        if iedName not in self.modelDict.keys(): return False
+        self.modelDict[iedName][item] = [mms_type, value, writable]
         return True
 
     def startService(self):
         print("Start MMS server on %s:%d" % (self.host, self.port))
-        self.ideModel = IedModel(self.model)
+        self.model = IedModel(self.modelDict)
         self.serve_forever(poll_interval=self.pollInterval)
 
     def getIDEModelObj(self):
-        return self.ideModel
+        return self.model
 
     def getParamterVal (self, iedName, item):
-        if iedName not in self.model.keys(): return None
-        if item not in self.model[iedName].keys(): return None
-        return self.ideModel.read(iedName, item)
+        if iedName not in self.modelDict.keys(): return None
+        if item not in self.modelDict[iedName].keys(): return None
+        return self.model.read(iedName, item)
 
     def setParamterVal (self, iedName, item, value):
-        if iedName not in self.model.keys(): return False
-        if item not in self.model[iedName].keys(): return False
-        if self.model[iedName][item][2] == False: return False
-        self.ideModel.write(iedName, item, self.model[iedName][item][0], value)
+        if iedName not in self.modelDict.keys(): return False
+        if item not in self.modelDict[iedName].keys(): return False
+        #if self.model[iedName][item][2] == False: return False
+        self.model.write(iedName, item, self.modelDict[iedName][item][0], value)
         return True
 
     def stopService(self):
