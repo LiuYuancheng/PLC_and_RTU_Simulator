@@ -60,6 +60,7 @@ AP_TITLE_CALLING = bytes.fromhex('29018767')    # 1.1.999
 PCTX_ACSE = 1       # presentation context id used for ACSE
 PCTX_MMS = 3        # presentation context id used for MMS
 
+# conversion between Python data types and MMS data representations.
 MMS_TYPE_ALIASES = {
     'bool': 'boolean', 'boolean': 'boolean',
     'int': 'integer', 'integer': 'integer',
@@ -74,7 +75,7 @@ MMS_TYPE_ALIASES = {
 # --------------------------------------------------------------------------------------
 # BER helper functions
 def tlv(tag, content=b""):
-    """Encode one BER element (single byte tag)."""
+    """Construct BER Tag-Length-Value elements (single byte tag)."""
     berLen = None
     conLen = len(content)
     if conLen < 0x80:
