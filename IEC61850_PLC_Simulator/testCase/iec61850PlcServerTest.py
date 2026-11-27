@@ -10,7 +10,7 @@
 # Author:      Yuancheng Liu
 #
 # Created:     2026/11/26
-# Version:     v_0.0.1
+# Version:     v_0.0.2
 # Copyright:   Copyright (c) 2026 LiuYuancheng
 # License:     MIT License    
 #-----------------------------------------------------------------------------
@@ -53,7 +53,7 @@ gTopDir = dirpath[:idx + len(TOPDIR)] if idx != -1 else dirpath   # found it - t
 gLibDir = os.path.join(gTopDir, LIBDIR)
 if os.path.exists(gLibDir): sys.path.insert(0, gLibDir)
 
-print("Test import DNP3 Communication lib: ")
+print("Test import IEC61850 MMS Communication lib: ")
 try:
     import iec61850MmsComm as mmsComm
 except ImportError as err:
@@ -95,7 +95,10 @@ def plcMainThread():
     time.sleep(1)
     print("[_] IEC61850MMS server is running ...")
     print("[_] Start the PLC ladder logic loop")
+    count = 0
     while True:
+        count += 1
+        print("[_] PLC ladder logic loop %d" % count)
         time.sleep(0.2)
         # Simulate PLC read IED sensor value from real physical device
         num1 = round(random.uniform(0, 100), 1)
@@ -110,6 +113,7 @@ def plcMainThread():
         ggio1 = serverThread.getLnVal('GGIO1$MX$AnIn1$mag$f')
         ggio2 = serverThread.getLnVal('GGIO1$SP$IntSP1$setVal')
         serverThread.setLnVal('GGIO1$SP$AnSP1$setMag$f', ggio1[1]+ggio2[1])
+        time.sleep(0.2)
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------

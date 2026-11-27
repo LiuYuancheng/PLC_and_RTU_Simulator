@@ -4,12 +4,12 @@
 #
 # Purpose:     This module is the testcase program for the IEC-61850-MMS comm 
 #              library <iec61850MmsComm.py>, it will start a MMS server in one 
-#              sub-thread and init one MMS client to test the data read and transmit.
+#              sub-thread and init one MMS client to test the data read and write.
 #
 # Author:      Yuancheng Liu
 #
 # Created:     2026/11/26
-# Version:     v_0.0.1
+# Version:     v_0.0.2
 # Copyright:   Copyright (c) 2026 LiuYuancheng
 # License:     MIT License
 #-----------------------------------------------------------------------------
@@ -70,12 +70,12 @@ def main():
     print(domanName)
     # get the vendor information
     val1 = client.read('IED1LD0', 'LLN0$DC$NamPlt$vendor')
-    showTestResult(('string', 'WagosElt'), val1, 'client get Logical Node Zero : LLN0$DC$NamPlt$vendor')
+    showTestResult(('string', 'WagosElt'), val1, 'client read Logical Node Zero : LLN0$DC$NamPlt$vendor')
     # get the model name
     val2 = client.read('IED1LD0', 'LLN0$DC$NamPlt$swRev')
-    showTestResult(('string', '0.0.1'), val2, 'client get Logical Node Zero : LLN0$DC$NamPlt$swRev')
+    showTestResult(('string', '0.0.1'), val2, 'client read Logical Node Zero : LLN0$DC$NamPlt$swRev')
     val3 = client.read('IED1LD0', 'LLN0$ST$Beh$stVal')
-    showTestResult(('integer', 1), val3, 'client get Logical Node Zero : LLN0$LN0$mod')
+    showTestResult(('integer', 1), val3, 'client read Logical Node Zero : LLN0$LN0$mod')
 
     print("[_] Test client data reading")
     val1 = client.read('IED1LD0', 'MMXU1$MX$Hz$mag$f')
@@ -83,9 +83,9 @@ def main():
     val2 = client.read('IED1LD0', 'MMXU1$MX$TotW$mag$f')
     showTestResult(('float', 1250.0), val2, 'client get measurement : MMXU1$MX$TotW$mag$f')
     val3 = client.read('IED1LD0', 'GGIO1$DC$Desc$d')
-    showTestResult(('string','Generic I/O'), val3, 'client get GGIO : GGIO1$DC$Desc$d')
+    showTestResult(('string','Generic I/O'), val3, 'client read GGIO : GGIO1$DC$Desc$d')
     val4 = client.read('IED1LD0', 'GGIO1$SP$IntSP1$setVal')
-    showTestResult(('integer', 100), val4, 'client get GGIO : GGIO1$SP$IntSP1$setVal')
+    showTestResult(('integer', 100), val4, 'client read GGIO : GGIO1$SP$IntSP1$setVal')
 
     print("[_] Test server modify value")
     server.setLnVal('MMXU1$MX$TotW$mag$f', 200.0)
@@ -93,7 +93,7 @@ def main():
     val1 = server.getLnVal('MMXU1$MX$TotW$mag$f')
     showTestResult(('float', 200.0), val1, 'server get measurement : MMXU1$MX$TotW$mag$f')
     val2 = client.read('IED1LD0', 'MMXU1$MX$TotW$mag$f')
-    showTestResult(('float', 200.0), val2, 'client get measurement : MMXU1$MX$TotW$mag$f')
+    showTestResult(('float', 200.0), val2, 'client read measurement : MMXU1$MX$TotW$mag$f')
 
     print("[_] Test client modify value")
     client.write('IED1LD0', 'GGIO1$SP$IntSP1$setVal', 'integer', 200)
@@ -101,7 +101,7 @@ def main():
     val1 = server.getLnVal('GGIO1$SP$IntSP1$setVal')
     showTestResult(('integer', 200), val1, 'server get GGIO : GGIO1$SP$IntSP1$setVal')
     val2 = client.read('IED1LD0', 'GGIO1$SP$IntSP1$setVal')
-    showTestResult(('integer', 200), val2, 'client get GGIO : GGIO1$SP$IntSP1$setVal')
+    showTestResult(('integer', 200), val2, 'client read GGIO : GGIO1$SP$IntSP1$setVal')
     
     print("[_] Test client modify un-writable value")
     try:
